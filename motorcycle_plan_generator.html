@@ -368,7 +368,7 @@ textarea{resize:vertical;min-height:56px;line-height:1.6}
 .login-err{font-size:11px;color:#f85149;margin-top:8px;min-height:16px;text-align:center}
 .login-spinner{display:none;font-size:11px;color:#8b949e;text-align:center;margin-top:8px}
 /* ── TOP BAR (after login) ── */
-#topBar{display:none;position:fixed;top:0;left:0;right:0;height:36px;background:#161b22;border-bottom:1px solid #21262d;z-index:9000;display:none;align-items:center;padding:0 14px;gap:10px}
+#topBar{display:none;position:fixed;top:0;left:0;right:0;height:36px;background:#161b22;border-bottom:1px solid #21262d;z-index:9000;align-items:center;padding:0 14px;gap:10px}
 #topBar.visible{display:flex}
 .tb-brand{font-size:12px;font-weight:700;color:#f0f6fc}
 .tb-user{font-size:11px;color:#8b949e;margin-left:auto}
@@ -1971,14 +1971,32 @@ function applyPermissions(){
   var canEdit=currentUser.role==='admin'||currentUser.can_edit_pricelist!==false;
   var canGen=currentUser.role==='admin'||currentUser.can_edit_generator!==false;
   var canMF=currentUser.role==='admin'||currentUser.can_edit_mf!==false;
-  // Pricelist: disable add/edit/delete if no permission
+
+  // Pricelist: hide add/edit buttons if no permission
   document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
-  // Generator: disable inputs
+
+  // Generator: disable inputs and add buttons (but NOT calc panel or MF)
   if(!canGen){
-    document.querySelectorAll('.ep input,.ep textarea,.ep select,.ep button:not(.btn-gen):not(.btn-pdf)').forEach(function(el){el.disabled=true;});
+    document.querySelectorAll('.ep input,.ep textarea,.ep select').forEach(function(el){el.disabled=true;});
+    document.querySelectorAll('.ep .btn:not(.btn-gen):not(.btn-pdf)').forEach(function(el){el.disabled=true;});
   }
-  // MF: disable add
-  if(!canMF){var mfAdd=document.getElementById('mf_add_btn');if(mfAdd)mfAdd.style.display='none';}
+
+  // MF: show/hide add button and inputs based on canMF
+  var mfAdd=document.getElementById('mf_add_btn');
+  var mfBrand=document.getElementById('mfBrand');
+  var mfModel=document.getElementById('mfModel');
+  var mfAmt=document.getElementById('mfAmt');
+  if(!canMF){
+    if(mfAdd)mfAdd.style.display='none';
+    if(mfBrand)mfBrand.disabled=true;
+    if(mfModel)mfModel.disabled=true;
+    if(mfAmt)mfAmt.disabled=true;
+  } else {
+    if(mfAdd)mfAdd.style.display='';
+    if(mfBrand)mfBrand.disabled=false;
+    if(mfModel)mfModel.disabled=false;
+    if(mfAmt)mfAmt.disabled=false;
+  }
 }
 
 function doLogout(){
