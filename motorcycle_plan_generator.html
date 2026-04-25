@@ -766,10 +766,7 @@ body.logged-in{padding-top:36px}
 <div class="ep">
   <div class="app-title">
     <span>Generator</span>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="saved-badge" id="savedBadge">Saved</span>
-      <button class="btn-clear" onclick="clearSaved()">Clear Memory</button>
-    </div>
+    <span class="saved-badge" id="savedBadge">Saved</span>
   </div>
   <div class="tabs" id="mainTabs">
     <div class="tab on" onclick="sw('info')">Info</div>
@@ -1481,32 +1478,17 @@ function exportMF(){var a=document.createElement('a');a.href=URL.createObjectURL
 function importMF(e){var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);if(Array.isArray(data)){MF=data;saveMF();renderMFTable();}else alert('Invalid file format.');}catch(err){alert('Could not read file.');}};reader.readAsText(file);e.target.value='';}
 
 /* ══ SAVE / LOAD (generator) ══ */
-var saveTimer=null;
-var cloudReady=false; // block save() until cloud load completes
-var lastKnownGiftGroupCount=-1; // -1 = not yet loaded from cloud
+var cloudReady=false;
 
+// save() is now LOCAL ONLY — just marks that unsaved changes exist.
+// Cloud sync happens ONLY via saveAll() (manual or 5-min auto).
 function save(){
-  if(!cloudReady)return; // don't overwrite cloud data before it's loaded
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(function(){
+  // Only write to localStorage as a temporary buffer
+  if(!cloudReady)return;
+  try{
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
-    // Safety: if local giftGroups is empty but cloud had data, don't overwrite
-    if(snap.giftGroups.length===0&&lastKnownGiftGroupCount>0)return;
-    try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
-    // Push to Supabase if logged in
-    if(currentUser){
-      sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}])
-        .then(function(ok){
-          var b=ge('savedBadge');
-          b.textContent=ok?'Saved ☁':'Saved (local)';
-          b.classList.add('show');
-          setTimeout(function(){b.classList.remove('show');},1400);
-        });
-    } else {
-      var b=ge('savedBadge');b.textContent='Saved';b.classList.add('show');
-      setTimeout(function(){b.classList.remove('show');},1400);
-    }
-  },600);
+    localStorage.setItem(STORE_KEY,JSON.stringify(snap));
+  }catch(e){}
 }
 function loadSaved(){
   // No-op: loading is handled by loadAllFromCloud() after login.
@@ -1901,10 +1883,13 @@ function startRealtimeSync(){
       if(pl.length&&pl[0].updated_at>since)needsRefresh=true;
       if(gs.length&&gs[0].updated_at>since)needsRefresh=true;
       if(needsRefresh){
-        if(isSaving)return; // don't overwrite during active save
         lastSyncTime=now;
-        await loadAllFromCloud();
-        buildRows();buildGiftGroups();R();renderMFTable();renderPLList();
+        // Only reload pricelist + MF from realtime — never overwrite generator/gifts mid-session
+        var pl2=await sbGet('pricelist','select=*&order=brand.asc,model.asc');
+        if(pl2.length)PL.list=pl2.map(function(r){return{id:r.id,brand:r.brand,model:r.model,cash:r.cash,hp:r.hp,ins1:r.ins1,ins1p:r.ins1p,inssum:r.inssum,ins3:r.ins3,rtax:r.rtax,hand:r.hand,other:r.other,dpk:r.dpk,dph:r.dph,pa:r.pa,loanyear:r.loanyear};});
+        var mf2=await sbGet('max_finance','select=*&order=id.asc');
+        if(mf2.length)MF=mf2.map(function(r){return{brand:r.brand,model:r.model,amt:r.amt};});
+        renderMFTable();renderPLList();
         var sync=document.getElementById('tbSync');
         sync.textContent='↻ Updated';sync.classList.add('show');
         setTimeout(function(){sync.classList.remove('show');},2000);
@@ -1953,43 +1938,39 @@ async function loadAllFromCloud(){
 }
 
 /* ══ CLOUD SAVE ══ */
-var isSaving=false;
 async function saveAll(){
   if(!currentUser||!cloudReady)return;
-  if(isSaving)return; // prevent concurrent saves
-  isSaving=true;
   var btn=document.getElementById('saveBarStatus');
   btn.textContent='Saving…';btn.classList.add('show');
   try{
     function pn(v){var x=parseFloat(v);return isNaN(x)?null:x;}
     function ps(v){return(v&&String(v).trim())||null;}
+    // Pricelist
     if(PL.list.length){
       await sbUpsert('pricelist',PL.list.map(function(e){return{id:e.id,brand:ps(e.brand),model:ps(e.model),cash:pn(e.cash),hp:pn(e.hp),ins1:pn(e.ins1),ins1p:pn(e.ins1p),inssum:pn(e.inssum),ins3:pn(e.ins3),rtax:pn(e.rtax),hand:pn(e.hand),other:pn(e.other),dpk:pn(e.dpk),dph:pn(e.dph),pa:pn(e.pa),loanyear:ps(e.loanyear),updated_at:new Date().toISOString()};}));
     }
+    // Max Finance
     await fetch(SB_URL+'/rest/v1/max_finance?id=gte.0',{method:'DELETE',headers:sbHeaders()});
     if(MF.length)await sbUpsert('max_finance',MF.map(function(m){return{brand:m.brand,model:m.model,amt:m.amt};}));
+    // Brand order
     await sbUpsert('brand_order',[{id:1,order_list:PL_BRAND.order}]);
-    // Only save generator settings if giftGroups is non-empty OR explicitly cleared by user
-    var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
-    // Safety: fetch current cloud giftGroups and only overwrite if our local copy is non-empty or matches
-    var currentGs=await sbGet('generator_settings','username=eq.'+encodeURIComponent(currentUser.username)+'&select=data');
-    var cloudGifts=currentGs.length&&currentGs[0].data&&currentGs[0].data.giftGroups;
-    if(!snap.giftGroups.length&&cloudGifts&&cloudGifts.length){
-      // Local is empty but cloud has data — restore from cloud instead of overwriting
-      snap.giftGroups=cloudGifts;
-      S.giftGroups=cloudGifts;
-      buildGiftGroups();
-    }
+    // Generator settings — read directly from S state (authoritative)
+    var snap={
+      modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),
+      otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,
+      p1rows:S.p1rows,p2rows:S.p2rows,
+      giftGroups:S.giftGroups  // S.giftGroups is always authoritative after cloudReady=true
+    };
     await sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]);
-    await logAction('save_all','all','all',null,{timestamp:new Date().toISOString()});
+    await logAction('save_all','all','all',null,{ts:new Date().toISOString(),gifts:S.giftGroups.length});
+    // Backup to localStorage
     plSaveLib();plSaveBrandOrder();plSaveSel();saveMF();
     try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
     lastSyncTime=new Date().toISOString();
     btn.textContent='✓ Synced  '+new Date().toLocaleTimeString();
-    document.getElementById('tbSync').textContent='✓ Synced';document.getElementById('tbSync').classList.add('show');
-    setTimeout(function(){document.getElementById('tbSync').classList.remove('show');},3000);
+    var ts=document.getElementById('tbSync');ts.textContent='✓ Synced';ts.classList.add('show');
+    setTimeout(function(){ts.classList.remove('show');},3000);
   }catch(e){btn.textContent='⚠ Save failed';console.error(e);}
-  isSaving=false;
   setTimeout(function(){btn.classList.remove('show');},4000);
 }
 setInterval(saveAll,5*60*1000);
