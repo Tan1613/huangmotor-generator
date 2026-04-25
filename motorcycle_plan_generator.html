@@ -341,6 +341,21 @@ textarea{resize:vertical;min-height:56px;line-height:1.6}
 .ib-dismiss{background:none;border:none;color:#8b949e;font-size:16px;cursor:pointer;padding:0 2px;line-height:1}
 .ib-dismiss:hover{color:#f0f6fc}
 #loginScreen{position:fixed;inset:0;background:#0d1117;display:flex;align-items:center;justify-content:center;z-index:99999}
+/* ── PROFILE MODAL ── */
+#profilePanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99998;align-items:center;justify-content:center}
+#profilePanel.open{display:flex}
+.profile-box{background:#161b22;border:1px solid #30363d;border-radius:12px;width:360px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.profile-hdr{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.2rem;border-bottom:1px solid #21262d}
+.profile-hdr span{font-size:14px;font-weight:700;color:#f0f6fc}
+.profile-body{padding:1.2rem}
+.profile-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1f6feb,#388bfd);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin:0 auto 1rem}
+.profile-field{margin-bottom:.7rem}
+.profile-field label{font-size:11px;color:#8b949e;display:block;margin-bottom:3px}
+.profile-field input{width:100%;padding:7px 10px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#f0f6fc;font-size:12px;outline:none}
+.profile-field input:focus{border-color:#58a6ff}
+.profile-save-btn{width:100%;padding:8px;background:#1f6feb;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;margin-top:.5rem}
+.profile-save-btn:hover{background:#388bfd}
+.profile-msg{font-size:11px;text-align:center;margin-top:6px;min-height:16px;color:#3fb950}
 .login-box{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:2rem 2.2rem;width:320px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
 .login-logo{font-size:18px;font-weight:700;color:#f0f6fc;margin-bottom:4px}
 .login-sub{font-size:11px;color:#8b949e;margin-bottom:1.6rem}
@@ -411,6 +426,41 @@ body.logged-in{padding-top:36px}
   <button class="ib-dismiss" onclick="dismissInstall()" title="Dismiss">✕</button>
 </div>
 
+<!-- PROFILE MODAL -->
+<div id="profilePanel">
+  <div class="profile-box">
+    <div class="profile-hdr">
+      <span>👤 My Profile</span>
+      <button onclick="closeProfile()" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div class="profile-body">
+      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div class="profile-field">
+        <label>Username</label>
+        <input type="text" id="pf_username" disabled>
+      </div>
+      <div class="profile-field">
+        <label>Display Name</label>
+        <input type="text" id="pf_display_name" placeholder="e.g. Ahmad bin Ali">
+      </div>
+      <div class="profile-field">
+        <label>Position / Title</label>
+        <input type="text" id="pf_position" placeholder="e.g. Sales Executive">
+      </div>
+      <div class="profile-field">
+        <label>Phone</label>
+        <input type="text" id="pf_phone" placeholder="e.g. 012-345 6789">
+      </div>
+      <div class="profile-field">
+        <label>Email</label>
+        <input type="text" id="pf_email" placeholder="e.g. ahmad@huangmotor.com">
+      </div>
+      <button class="profile-save-btn" onclick="saveProfile()">Save Profile</button>
+      <div class="profile-msg" id="profileMsg"></div>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
   <div class="login-box">
@@ -433,6 +483,7 @@ body.logged-in{padding-top:36px}
   <span class="tb-user" id="tbUser"></span>
   <span class="tb-sync" id="tbSync">✓ Synced</span>
   <button id="tbAdmin" onclick="openAdmin()" style="display:none;padding:3px 10px;border:1px solid #30363d;border-radius:5px;font-size:10px;cursor:pointer;background:none;color:#f0c040">⚙ Admin</button>
+  <button onclick="openProfile()" style="padding:3px 10px;border:1px solid #30363d;border-radius:5px;font-size:10px;cursor:pointer;background:none;color:#8b949e">👤 Profile</button>
   <button class="tb-logout" onclick="doLogout()">Sign Out</button>
 </div>
 
@@ -1396,9 +1447,9 @@ var S={
   giftGroups:[],mode:'preview'
 };
 var LB={
-  en:{plan1:'Installment Plan \u2014 Rebate',plan2:'Installment Plan \u2014 Ready2Ride',dp:'Down Payment (RM)',otr:'Down Payment OTR',fee:'Processing fee',gift:'Free Gift',quotation:'Quotation',date:'Date',validNote:'This quotation is valid for 7 days from the date of issuance.',footer:'For reference only \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'Prices and terms are subject to change without prior notice.'},
-  ms:{plan1:'Pelan Ansuran \u2014 Rebat',plan2:'Pelan Ansuran \u2014 Ready2Ride',dp:'Bayaran Pendahuluan (RM)',otr:'Bayaran Pendahuluan OTR',fee:'Yuran Pemprosesan',gift:'Hadiah Percuma',quotation:'Sebut Harga',date:'Tarikh',validNote:'Sebut harga ini sah selama 7 hari dari tarikh pengeluaran.',footer:'Untuk rujukan sahaja \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'Harga dan terma tertakluk kepada perubahan tanpa notis terlebih dahulu.'},
-  zh:{plan1:'\u5206\u671f\u8ba1\u5212\u2014\u56de\u6263',plan2:'\u5206\u671f\u8ba1\u5212\u2014Ready2Ride',dp:'\u9996\u4ed8 (RM)',otr:'\u9996\u4ed8 OTR',fee:'\u624b\u7eed\u8d39',gift:'\u514d\u8d39\u8d60\u54c1',quotation:'\u62a5\u4ef7\u5355',date:'\u65e5\u671f',validNote:'\u672c\u62a5\u4ef7\u5355\u81ea\u5f00\u7acb\u4e4b\u65e5\u8d77\u67097\u5929\u5185\u6709\u6548\u3002',footer:'\u4ec5\u4f9b\u53c2\u8003 \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'\u4ef7\u683c\u53ca\u6761\u6b3e\u5982\u6709\u53d8\u52a8\u6055\u4e0d\u53e6\u884c\u901a\u77e5\u3002'}
+  en:{plan1:'Installment Plan \u2014 Rebate',plan2:'Installment Plan \u2014 Ready2Ride',dp:'Down Payment (RM)',otr:'Down Payment OTR',fee:'Processing fee',gift:'Free Gift',quotation:'Quotation',date:'Date',validNote:'This quotation is valid for 7 days from the date of issuance.',preparedBy:'Prepared by',footer:'For reference only \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'Prices and terms are subject to change without prior notice.'},
+  ms:{plan1:'Pelan Ansuran \u2014 Rebat',plan2:'Pelan Ansuran \u2014 Ready2Ride',dp:'Bayaran Pendahuluan (RM)',otr:'Bayaran Pendahuluan OTR',fee:'Yuran Pemprosesan',gift:'Hadiah Percuma',quotation:'Sebut Harga',date:'Tarikh',validNote:'Sebut harga ini sah selama 7 hari dari tarikh pengeluaran.',preparedBy:'Disediakan oleh',footer:'Untuk rujukan sahaja \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'Harga dan terma tertakluk kepada perubahan tanpa notis terlebih dahulu.'},
+  zh:{plan1:'\u5206\u671f\u8ba1\u5212\u2014\u56de\u6263',plan2:'\u5206\u671f\u8ba1\u5212\u2014Ready2Ride',dp:'\u9996\u4ed8 (RM)',otr:'\u9996\u4ed8 OTR',fee:'\u624b\u7eed\u8d39',gift:'\u514d\u8d39\u8d60\u54c1',quotation:'\u62a5\u4ef7\u5355',date:'\u65e5\u671f',validNote:'\u672c\u62a5\u4ef7\u5355\u81ea\u5f00\u7acb\u4e4b\u65e5\u8d77\u67097\u5929\u5185\u6709\u6548\u3002',preparedBy:'\u7531\u8c01\u5236\u5907',footer:'\u4ec5\u4f9b\u53c2\u8003 \uFF5C \u00A9 2026 HuangMotor M Sdn Bhd',footerSub:'\u4ef7\u683c\u53ca\u6761\u6b3e\u5982\u6709\u53d8\u52a8\u6055\u4e0d\u53e6\u884c\u901a\u77e5\u3002'}
 };
 var COLORS=['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#f97316','#6b7280'];
 
@@ -1703,7 +1754,29 @@ function openPDF(){
     var gHTML=gifts.length?'<p class="pdf-gift-title">'+L.gift+'</p><ul class="pdf-gift-list">'+gifts.map(function(g){return '<li>&#10003; '+esc(g)+'</li>';}).join('')+'</ul>':'';
     return '<div class="pdf-sec"><div class="pdf-sec-title">'+esc(L['plan'+p])+'</div><p style="font-size:11px;margin-bottom:3px">'+esc(L.otr)+(otr?' ['+esc(otr)+']':'')+'</p><p style="font-size:11px;margin-bottom:7px">'+esc(L.fee)+' '+esc(fee)+'</p><table class="pdf-table"><thead><tr><th>'+esc(L.dp)+'</th>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>'+gHTML+'</div>';
   }
-  ge('pdfInner').innerHTML='<div class="pdf-header"><div><div class="pdf-co">HuangMotor M Sdn Bhd</div><div class="pdf-co-sub">Motor Dealer · Authorised Sales &amp; Service</div></div><div class="pdf-date-block"><b>'+L.quotation+'</b><br>'+L.date+': '+dateStr+'</div></div><div class="pdf-model">'+esc(model)+'</div>'+(desc?'<div class="pdf-desc">'+esc(desc)+'</div>':'')+planSec(1)+planSec(2)+'<p style="font-size:10px;color:#888;margin-top:10px">'+L.validNote+'</p><div class="pdf-footer">'+L.footer+'<br>'+L.footerSub+'</div>';
+  // Preparer info from current user profile
+  var preparerName=currentUser?(currentUser.display_name||currentUser.username):'';
+  var preparerPos=currentUser?currentUser.position:'';
+  var preparerPhone=currentUser?currentUser.phone:'';
+  var preparerEmail=currentUser?currentUser.email:'';
+  var preparerBlock='';
+  if(currentUser){
+    var dispName=currentUser.display_name||currentUser.username;
+    var prepLabel=esc(L.preparedBy)+': '+esc(dispName);
+    if(currentUser.display_name&&currentUser.display_name!==currentUser.username){
+      prepLabel+=esc(dispName)+' <span style="color:#888;font-weight:400">(@'+esc(currentUser.username)+')</span>';
+    } else {
+      prepLabel=esc(L.preparedBy)+': '+esc(currentUser.username);
+    }
+    preparerBlock='<div class="pdf-preparer">'
+      +'<div class="name">'+prepLabel+'</div>'
+      +(preparerPos?'<div class="info">'+esc(preparerPos)+'</div>':'')
+      +(preparerPhone?'<div class="info">📞 '+esc(preparerPhone)+'</div>':'')
+      +(preparerEmail?'<div class="info">✉ '+esc(preparerEmail)+'</div>':'')
+      +'</div>';
+  }
+
+  ge('pdfInner').innerHTML='<div class="pdf-header"><div><div class="pdf-co">HuangMotor M Sdn Bhd</div><div class="pdf-co-sub">Motor Dealer · Authorised Sales &amp; Service</div></div><div class="pdf-date-block"><b>'+L.quotation+'</b><br>'+L.date+': '+dateStr+'</div></div><div class="pdf-model">'+esc(model)+'</div>'+(desc?'<div class="pdf-desc">'+esc(desc)+'</div>':'')+planSec(1)+planSec(2)+'<p style="font-size:10px;color:#888;margin-top:10px">'+L.validNote+'</p>'+preparerBlock+'<div class="pdf-footer">'+L.footer+'<br>'+L.footerSub+'</div>';
   ge('pdfSheet').style.display='block';document.body.style.overflow='hidden';
 }
 function closePDF(){ge('pdfSheet').style.display='none';document.body.style.overflow='';}
@@ -1732,6 +1805,9 @@ function printQuotePdf(){
     +'.pdf-gift-list{padding-left:1rem}'
     +'.pdf-gift-list li{font-size:11px;margin:2px 0}'
     +'.pdf-footer{text-align:center;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:6px;margin-top:20px}'
+    +'.pdf-preparer{margin-top:14px;padding:10px 12px;background:#f7f7f7;border-left:3px solid #1a1a1a;font-size:11px}'
+    +'.pdf-preparer .name{font-weight:600;margin-bottom:3px}'
+    +'.pdf-preparer .info{color:#555;margin:2px 0}'
     +'@page{size:A4 portrait;margin:8mm}'
     +'@media print{body{padding:0}}'
     +'</style></head><body>'
@@ -1831,16 +1907,64 @@ async function afterLogin(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='';
   document.getElementById('topBar').classList.add('visible');
-  document.getElementById('tbUser').textContent=currentUser.username+' ('+currentUser.role+')';
   document.body.classList.add('logged-in');
-  // Show admin button for admin role
   if(currentUser.role==='admin')document.getElementById('tbAdmin').style.display='';
-  // Apply permissions
+  // Load full profile from cloud
+  await loadProfile();
+  document.getElementById('tbUser').textContent=(currentUser.display_name||currentUser.username)+' ('+currentUser.role+')';
   applyPermissions();
   await loadAllFromCloud();
   buildRows();buildGiftGroups();R();renderMFTable();renderPLList();
-  // Start realtime polling every 30s
   startRealtimeSync();
+}
+
+/* ══ PROFILE ══ */
+async function loadProfile(){
+  try{
+    var rows=await sbGet('users','username=eq.'+encodeURIComponent(currentUser.username)+'&select=username,display_name,position,phone,email');
+    if(rows.length){
+      currentUser.display_name=rows[0].display_name||'';
+      currentUser.position=rows[0].position||'';
+      currentUser.phone=rows[0].phone||'';
+      currentUser.email=rows[0].email||'';
+    }
+  }catch(e){}
+}
+
+function openProfile(){
+  document.getElementById('pf_username').value=currentUser.username||'';
+  document.getElementById('pf_display_name').value=currentUser.display_name||'';
+  document.getElementById('pf_position').value=currentUser.position||'';
+  document.getElementById('pf_phone').value=currentUser.phone||'';
+  document.getElementById('pf_email').value=currentUser.email||'';
+  // Avatar initial
+  var name=currentUser.display_name||currentUser.username||'?';
+  document.getElementById('profileAvatar').textContent=name.charAt(0).toUpperCase();
+  document.getElementById('profileMsg').textContent='';
+  document.getElementById('profilePanel').classList.add('open');
+}
+function closeProfile(){document.getElementById('profilePanel').classList.remove('open');}
+
+async function saveProfile(){
+  var display_name=document.getElementById('pf_display_name').value.trim();
+  var position=document.getElementById('pf_position').value.trim();
+  var phone=document.getElementById('pf_phone').value.trim();
+  var email=document.getElementById('pf_email').value.trim();
+  try{
+    await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(currentUser.username),{
+      method:'PATCH',headers:sbHeaders(),
+      body:JSON.stringify({display_name:display_name||null,position:position||null,phone:phone||null,email:email||null})
+    });
+    currentUser.display_name=display_name;
+    currentUser.position=position;
+    currentUser.phone=phone;
+    currentUser.email=email;
+    document.getElementById('tbUser').textContent=(display_name||currentUser.username)+' ('+currentUser.role+')';
+    document.getElementById('profileAvatar').textContent=(display_name||currentUser.username).charAt(0).toUpperCase();
+    document.getElementById('profileMsg').textContent='✓ Profile saved';
+    await logAction('update_profile','users',currentUser.username,null,{display_name:display_name,position:position});
+    setTimeout(function(){document.getElementById('profileMsg').textContent='';},2000);
+  }catch(e){document.getElementById('profileMsg').style.color='#f85149';document.getElementById('profileMsg').textContent='Save failed.';}
 }
 
 function applyPermissions(){
