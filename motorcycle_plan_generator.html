@@ -552,6 +552,13 @@ body.logged-in{padding-top:36px}
 <div id="plPdfSheet">
   <div class="pl-pdf-inner" id="plPdfInner"></div>
   <div class="pl-pdf-actions">
+    <!-- Font size control -->
+    <div style="display:flex;align-items:center;gap:8px;background:#2a2a2a;padding:8px 14px;border-radius:7px;box-shadow:0 3px 12px rgba(0,0,0,.3)">
+      <span style="font-size:12px;color:#aaa;white-space:nowrap">Font size</span>
+      <button onclick="adjustPdfFont(-1)" style="width:28px;height:28px;border:1px solid #555;border-radius:5px;background:#1a1a1a;color:#fff;font-size:16px;cursor:pointer;line-height:1">−</button>
+      <span id="pdfFontSizeLabel" style="font-size:13px;font-weight:700;color:#fff;min-width:36px;text-align:center">11px</span>
+      <button onclick="adjustPdfFont(1)" style="width:28px;height:28px;border:1px solid #555;border-radius:5px;background:#1a1a1a;color:#fff;font-size:16px;cursor:pointer;line-height:1">+</button>
+    </div>
     <button class="pl-pdf-act" style="background:#1a1a1a;color:#fff" onclick="printPLPdf()">🖨 Print / Save PDF</button>
     <button class="pl-pdf-act" style="background:#fff;color:#1a1a1a" onclick="closePLPdf()">✕ Close</button>
   </div>
@@ -1124,7 +1131,7 @@ function openPLPdf(){
         +'<td class="hp">'+rm(e.hp)+'</td>'
         +'<td class="loan">'+loanAmt(e.hp,e.dpk)+'</td>'
         +'<td class="sub">'+rm(e.rtax)+'</td>'
-        +'<td class="sub">'+rm(e.inssum)+'</td>'
+        +'<td class="sub">'+(e.inssum&&parseFloat(e.inssum)>0?Number(parseFloat(e.inssum)).toLocaleString():'—')+'</td>'
         +'<td class="sub">'+rm(e.ins1)+'</td>'
         +'<td class="sub">'+rm(e.ins1p)+'</td>'
         +'<td class="sub">'+rm(e.ins3)+'</td>'
@@ -1167,45 +1174,41 @@ function openPLPdf(){
 
   document.getElementById('plPdfSheet').style.display='block';
   document.body.style.overflow='hidden';
+  document.getElementById('pdfFontSizeLabel').textContent=pdfFontSize+'px';
+  setTimeout(applyPdfFontSize,50);
 }
 function printPLPdf(){
   var content=document.getElementById('plPdfInner').innerHTML;
+  var fs=pdfFontSize;
+  var fsSm=fs-1;
   var win=window.open('','_blank','width=1000,height=750');
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HuangMotor Pricelist</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:8mm 10mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    /* header */
+    +'body{font-family:Arial,sans-serif;font-size:'+fs+'px;color:#1a1a1a;padding:8mm 10mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'.pl-pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #1a1a1a;margin-bottom:10px}'
-    +'.pl-pdf-co{font-size:15px;font-weight:700}'
-    +'.pl-pdf-sub{font-size:9px;color:#666;margin-top:2px}'
-    +'.pl-pdf-date{font-size:11px;color:#555;text-align:right;line-height:1.6}'
-    /* table layout: fixed widths to prevent wrapping */
+    +'.pl-pdf-co{font-size:'+(fs+4)+'px;font-weight:700}'
+    +'.pl-pdf-sub{font-size:'+(fs-2)+'px;color:#666;margin-top:2px}'
+    +'.pl-pdf-date{font-size:'+(fs-1)+'px;color:#555;text-align:right;line-height:1.6}'
     +'table{width:100%;border-collapse:collapse;table-layout:fixed}'
-    /* column widths: Brand 10%, Model 14%, Cash/DP 10% each, 5yr cols 7% each, HP/Loan/RTax/Ins cols 7% each */
-    +'col.c-brand{width:10%}col.c-model{width:13%}col.c-cash{width:10%}col.c-dp{width:9%}'
-    +'col.c-yr{width:7%}col.c-hp{width:8%}col.c-loan{width:7%}col.c-ins{width:7%}'
-    /* header row 1 */
-    +'th{padding:5px 4px;border:1px solid #555;text-align:center;white-space:nowrap;overflow:hidden;font-size:10px;background:#1a1a1a;color:#fff}'
-    +'th.r2{background:#2d2d2d;font-size:9px}'
+    +'th{padding:5px 4px;border:1px solid #555;text-align:center;white-space:nowrap;overflow:hidden;font-size:'+fs+'px;background:#1a1a1a;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'th.r2{background:#2d2d2d;font-size:'+fsSm+'px}'
     +'th.left{text-align:left}'
-    /* data cells */
-    +'td{padding:5px 4px;border:1px solid #ddd;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;text-align:right}'
+    +'td{padding:5px 4px;border:1px solid #ddd;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:'+fs+'px;text-align:right}'
     +'td.left{text-align:left;font-weight:700}'
     +'td.model{text-align:left}'
     +'td.cash{font-weight:600;color:#1a1a1a}'
     +'td.dp{font-weight:600;color:#1a1a1a}'
     +'td.inst{font-weight:700;color:#1a1a1a}'
     +'td.na{color:#ccc;text-align:center}'
-    +'td.hp{color:#888;font-size:10px}'
-    +'td.loan{color:#888;font-size:10px}'
-    +'td.sub{color:#555;font-size:10px}'
-    /* alternating row shade: every pair of rows (2 tr per entry) */
+    +'td.hp{color:#888;font-size:'+fsSm+'px}'
+    +'td.loan{color:#888;font-size:'+fsSm+'px}'
+    +'td.sub{color:#555;font-size:'+fsSm+'px}'
     +'tr.row-a td{background:#fff}'
     +'tr.row-b td{background:#f5f5f5}'
     +'tr.row-a2 td{background:#fafafa}'
     +'tr.row-b2 td{background:#f0f0f0}'
-    +'.pl-pdf-footer-note{font-size:8px;color:#aaa;text-align:right;margin-top:8px}'
+    +'.pl-pdf-footer-note{font-size:'+(fs-3)+'px;color:#aaa;text-align:right;margin-top:8px}'
     +'@page{size:A4 portrait;margin:6mm}'
     +'@media print{body{padding:0}}'
     +'</style></head><body>'
@@ -1216,6 +1219,31 @@ function printPLPdf(){
   setTimeout(function(){win.print();},600);
 }
 function closePLPdf(){document.getElementById('plPdfSheet').style.display='none';document.body.style.overflow='';}
+
+var pdfFontSize=11; // default, user can adjust
+function adjustPdfFont(delta){
+  pdfFontSize=Math.min(20,Math.max(8,pdfFontSize+delta));
+  document.getElementById('pdfFontSizeLabel').textContent=pdfFontSize+'px';
+  applyPdfFontSize();
+}
+function applyPdfFontSize(){
+  var inner=document.getElementById('plPdfInner');
+  if(!inner)return;
+  // Scale all cells via CSS custom property
+  inner.style.setProperty('--pdf-fs', pdfFontSize+'px');
+  inner.style.setProperty('--pdf-fs-sm', (pdfFontSize-1)+'px');
+  inner.style.setProperty('--pdf-fs-h', (pdfFontSize+2)+'px');
+  // Apply directly to table cells for immediate preview
+  inner.querySelectorAll('td').forEach(function(td){
+    if(td.classList.contains('hp')||td.classList.contains('loan')||td.classList.contains('sub'))
+      td.style.fontSize=(pdfFontSize-1)+'px';
+    else
+      td.style.fontSize=pdfFontSize+'px';
+  });
+  inner.querySelectorAll('th').forEach(function(th){
+    th.style.fontSize=th.classList.contains('r2')?(pdfFontSize-1)+'px':pdfFontSize+'px';
+  });
+}
 
 function loadPLToCalc(){
   var e=PL.list.find(function(x){return x.id===PL.sel;});
