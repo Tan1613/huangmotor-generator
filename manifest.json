@@ -1,0 +1,24 @@
+{
+  "name": "HuangMotor Generator",
+  "short_name": "HM Generator",
+  "description": "Pricelist & Installment Plan Generator — HuangMotor M Sdn Bhd",
+  "start_url": "./motorcycle_plan_generator.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
