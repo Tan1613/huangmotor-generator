@@ -114,7 +114,7 @@ body{font-family:sans-serif;font-size:13px;color:#1a1a1a;background:#f0efeb;min-
 .pl-pdf-btn:disabled{opacity:.3;cursor:not-allowed}
 /* Pricelist PDF sheet */
 #plPdfSheet{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:10000;overflow:auto}
-.pl-pdf-inner{background:#fff;width:210mm;min-height:297mm;margin:20px auto;padding:12mm 13mm;font-family:'Arial',sans-serif;font-size:10px;color:#1a1a1a;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.pl-pdf-inner{background:#fff;width:210mm;min-height:297mm;margin:20px auto;padding:12mm 13mm;font-family:'Arial',sans-serif;font-size:12px;color:#1a1a1a;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .pl-pdf-co{font-size:15px;font-weight:700;margin-bottom:2px}
 .pl-pdf-sub{font-size:9px;color:#666;margin-bottom:10px}
 .pl-pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #1a1a1a;margin-bottom:10px}
@@ -137,10 +137,17 @@ body{font-family:sans-serif;font-size:13px;color:#1a1a1a;background:#f0efeb;min-
 @media print{
   @page{size:A4 portrait;margin:8mm}
   body,html{margin:0;padding:0}
-  .gw{display:none}
-  #plPdfSheet{display:block!important;position:static!important;background:#fff!important;overflow:visible!important}
+  .gw{display:none!important}
+  #loginScreen{display:none!important}
+  #topBar{display:none!important}
+  #installBanner{display:none!important}
+  /* Pricelist PDF */
+  #plPdfSheet{display:block!important;position:static!important;background:#fff!important;overflow:visible!important;z-index:auto!important}
   .pl-pdf-actions{display:none!important}
-  .pl-pdf-inner{margin:0!important;box-shadow:none!important;width:100%!important;padding:0!important}
+  .pl-pdf-inner{margin:0!important;box-shadow:none!important;width:100%!important;padding:6mm!important;min-height:auto!important}
+  /* Quotation PDF */
+  #pdfSheet{display:none!important}
+  .pdf-actions{display:none!important}
 }
 
 /* ══ CALCULATOR PANEL ══ */
@@ -302,7 +309,7 @@ textarea{resize:vertical;min-height:56px;line-height:1.6}
 .flash{animation:fl .5s ease}
 @keyframes fl{0%{background:#fffbe6}100%{background:transparent}}
 /* PDF */
-@media print{body,html{margin:0;padding:0}.gw{display:none}#pdfSheet{display:block!important;position:static!important;background:#fff!important;overflow:visible!important}.pdf-actions{display:none!important}.pdf-inner{margin:0!important;box-shadow:none!important;width:100%!important}}
+
 #pdfSheet{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:9999;overflow:auto}
 .pdf-inner{background:#fff;width:210mm;min-height:297mm;margin:20px auto;padding:14mm 16mm;font-family:'Arial',sans-serif;font-size:12px;color:#1a1a1a;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .pdf-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #1a1a1a}
@@ -545,7 +552,7 @@ body.logged-in{padding-top:36px}
 <div id="plPdfSheet">
   <div class="pl-pdf-inner" id="plPdfInner"></div>
   <div class="pl-pdf-actions">
-    <button class="pl-pdf-act" style="background:#1a1a1a;color:#fff" onclick="window.print()">🖨 Print / Save PDF</button>
+    <button class="pl-pdf-act" style="background:#1a1a1a;color:#fff" onclick="printPLPdf()">🖨 Print / Save PDF</button>
     <button class="pl-pdf-act" style="background:#fff;color:#1a1a1a" onclick="closePLPdf()">✕ Close</button>
   </div>
 </div>
@@ -1054,13 +1061,15 @@ function importAll(e){
 function openPLPdf(){
   var entries=PL.list.filter(function(e){return PL.checked.has(e.id);});
   if(!entries.length){alert('No entries selected.');return;}
-  var now=new Date();
-  var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
 
-  // Format RM, dash if empty
+  // Issue 4: dynamic date in readable format
+  var now=new Date();
+  var dateStr=now.getDate().toString().padStart(2,'0')+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getFullYear()
+    +' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+
+  // Issue 3: larger font helpers
   function rm(v){return v&&parseFloat(v)>0?'RM '+Number(parseFloat(v)).toLocaleString():'—';}
 
-  // Calculate monthly instalment: ceil((HP-DP)*(1+pa/100*yr)/(yr*12))
   function instalment(hp,dpk,pa,yr){
     var h=parseFloat(hp),d=parseFloat(dpk)||0,r=parseFloat(pa),y=parseInt(yr);
     if(!h||isNaN(h)||!r||isNaN(r)||!y||isNaN(y))return null;
@@ -1068,14 +1077,12 @@ function openPLPdf(){
     return Math.ceil(principal*(1+r/100*y)/(y*12));
   }
 
-  // LOAN = HP - DP Kedai
   function loanAmt(hp,dpk){
     var h=parseFloat(hp),d=parseFloat(dpk)||0;
     if(!h||isNaN(h))return '—';
     var l=h-d;return l>0?'RM '+Math.round(l).toLocaleString():'—';
   }
 
-  // Group by brand using custom order
   plSyncBrandOrder();
   var brandOrder=plGetBrandOrder();
   var brands={};
@@ -1084,15 +1091,17 @@ function openPLPdf(){
     if(!brands[b])brands[b]=[];
     brands[b].push(e);
   });
-  // Add any brands from entries not in brandOrder (fallback alpha)
   Object.keys(brands).sort().forEach(function(b){if(brandOrder.indexOf(b)<0)brandOrder.push(b);});
-  // Remove brands with no selected entries
   brandOrder=brandOrder.filter(function(b){return brands[b]&&brands[b].length;});
 
   var rows='';
+  var entryIdx=0;
   brandOrder.forEach(function(brand){
-    brands[brand].forEach(function(e,i){
+    brands[brand].forEach(function(e){
       var maxYr=parseInt(e.loanyear)||5;
+      var shade=entryIdx%2===0;
+      var r1cls=shade?'row-a':'row-b';
+      var r2cls=shade?'row-a2':'row-b2';
       var yrCells='';
       for(var yr=1;yr<=5;yr++){
         if(yr>maxYr){
@@ -1100,54 +1109,50 @@ function openPLPdf(){
         } else {
           var inst=instalment(e.hp,e.dpk,e.pa,yr);
           yrCells+=inst!==null
-            ?'<td class="inst-val">'+inst.toLocaleString()+'</td>'
+            ?'<td class="inst">'+inst.toLocaleString()+'</td>'
             :'<td class="na">—</td>';
         }
       }
-      rows+=
-        '<tr>'
-        // Brand: show on EVERY row (not just first)
-        +'<td rowspan="2" style="vertical-align:middle;border-right:1px solid #bbb">'+esc(brand)+'</td>'
-        +'<td rowspan="2" style="vertical-align:middle;border-right:1px solid #bbb">'+esc(e.model||'—')+'</td>'
-        +'<td class="num">'+rm(e.cash)+'</td>'
-        +'<td class="num">'+rm(e.dpk)+'</td>'
+      rows+='<tr class="'+r1cls+'">'
+        +'<td class="left" rowspan="2">'+esc(brand)+'</td>'
+        +'<td class="model" rowspan="2">'+esc(e.model||'—')+'</td>'
+        +'<td class="cash">'+rm(e.cash)+'</td>'
+        +'<td class="dp">'+rm(e.dpk)+'</td>'
         +yrCells
         +'</tr>'
-        +'<tr style="border-bottom:2px solid #ccc">'
-        // HP Price style
-        +'<td class="num" style="font-size:7.5px;color:#888;border-top:none">'+rm(e.hp)+'</td>'
-        // LOAN: same style as HP Price (font-size:7.5px, color:#888)
-        +'<td class="num" style="font-size:7.5px;color:#888;border-top:none">'+loanAmt(e.hp,e.dpk)+'</td>'
-        +'<td class="num" style="border-top:none;color:#666;font-size:7.5px">'+rm(e.rtax)+'</td>'
-        +'<td class="num" style="border-top:none;color:#666;font-size:7.5px">'+rm(e.inssum)+'</td>'
-        +'<td class="num" style="border-top:none;color:#666;font-size:7.5px">'+rm(e.ins1)+'</td>'
-        +'<td class="num" style="border-top:none;color:#666;font-size:7.5px">'+rm(e.ins1p)+'</td>'
-        +'<td class="num" style="border-top:none;color:#666;font-size:7.5px">'+rm(e.ins3)+'</td>'
+        +'<tr class="'+r2cls+'">'
+        +'<td class="hp">'+rm(e.hp)+'</td>'
+        +'<td class="loan">'+loanAmt(e.hp,e.dpk)+'</td>'
+        +'<td class="sub">'+rm(e.rtax)+'</td>'
+        +'<td class="sub">'+rm(e.inssum)+'</td>'
+        +'<td class="sub">'+rm(e.ins1)+'</td>'
+        +'<td class="sub">'+rm(e.ins1p)+'</td>'
+        +'<td class="sub">'+rm(e.ins3)+'</td>'
         +'</tr>';
+      entryIdx++;
     });
   });
 
-  var thead=
-    '<thead>'
+  // colgroup for fixed column widths (9 cols total)
+  var colgroup='<colgroup>'
+    +'<col style="width:11%">'  // Brand
+    +'<col style="width:14%">'  // Model
+    +'<col style="width:10%">'  // Cash Price
+    +'<col style="width:9%">'   // DP Kedai
+    +'<col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%">' // 1yr-5yr
+    +'</colgroup>';
+
+  var thead='<thead>'
     +'<tr>'
-    +'<th rowspan="2" style="text-align:left;min-width:55px">Brand</th>'
-    +'<th rowspan="2" style="text-align:left;min-width:80px">Model</th>'
-    +'<th>Cash Price</th>'
-    +'<th>DP Kedai</th>'
-    +'<th>1 yr</th>'
-    +'<th>2 yr</th>'
-    +'<th>3 yr</th>'
-    +'<th>4 yr</th>'
-    +'<th>5 yr</th>'
+    +'<th class="left" rowspan="2">Brand</th>'
+    +'<th class="left" rowspan="2">Model</th>'
+    +'<th>Cash Price</th><th>DP Kedai</th>'
+    +'<th>1 yr</th><th>2 yr</th><th>3 yr</th><th>4 yr</th><th>5 yr</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="r2">HP Price</th>'
-    +'<th class="r2">LOAN</th>'
-    +'<th class="r2">Road Tax</th>'
-    +'<th class="r2">Ins SUM</th>'
-    +'<th class="r2">Ins 1st</th>'
-    +'<th class="r2">Ins 1st+</th>'
-    +'<th class="r2">Ins 3rd</th>'
+    +'<th class="r2">HP Price</th><th class="r2">LOAN</th>'
+    +'<th class="r2">Road Tax</th><th class="r2">Ins SUM</th>'
+    +'<th class="r2">Ins 1st</th><th class="r2">Ins 1st+</th><th class="r2">Ins 3rd</th>'
     +'</tr>'
     +'</thead>';
 
@@ -1157,11 +1162,58 @@ function openPLPdf(){
     +'<div class="pl-pdf-sub">Motor Dealer · Authorised Sales &amp; Service</div></div>'
     +'<div class="pl-pdf-date"><b>Pricelist</b><br>'+dateStr+'</div>'
     +'</div>'
-    +'<table class="pl-pdf-table">'+thead+'<tbody>'+rows+'</tbody></table>'
+    +'<table>'+colgroup+thead+'<tbody>'+rows+'</tbody></table>'
     +'<div class="pl-pdf-footer-note">For reference only · © 2026 HuangMotor M Sdn Bhd · '+dateStr+'</div>';
 
   document.getElementById('plPdfSheet').style.display='block';
   document.body.style.overflow='hidden';
+}
+function printPLPdf(){
+  var content=document.getElementById('plPdfInner').innerHTML;
+  var win=window.open('','_blank','width=1000,height=750');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>HuangMotor Pricelist</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:8mm 10mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    /* header */
+    +'.pl-pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #1a1a1a;margin-bottom:10px}'
+    +'.pl-pdf-co{font-size:15px;font-weight:700}'
+    +'.pl-pdf-sub{font-size:9px;color:#666;margin-top:2px}'
+    +'.pl-pdf-date{font-size:11px;color:#555;text-align:right;line-height:1.6}'
+    /* table layout: fixed widths to prevent wrapping */
+    +'table{width:100%;border-collapse:collapse;table-layout:fixed}'
+    /* column widths: Brand 10%, Model 14%, Cash/DP 10% each, 5yr cols 7% each, HP/Loan/RTax/Ins cols 7% each */
+    +'col.c-brand{width:10%}col.c-model{width:13%}col.c-cash{width:10%}col.c-dp{width:9%}'
+    +'col.c-yr{width:7%}col.c-hp{width:8%}col.c-loan{width:7%}col.c-ins{width:7%}'
+    /* header row 1 */
+    +'th{padding:5px 4px;border:1px solid #555;text-align:center;white-space:nowrap;overflow:hidden;font-size:10px;background:#1a1a1a;color:#fff}'
+    +'th.r2{background:#2d2d2d;font-size:9px}'
+    +'th.left{text-align:left}'
+    /* data cells */
+    +'td{padding:5px 4px;border:1px solid #ddd;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;text-align:right}'
+    +'td.left{text-align:left;font-weight:700}'
+    +'td.model{text-align:left}'
+    +'td.cash{font-weight:600;color:#1a1a1a}'
+    +'td.dp{font-weight:600;color:#1a1a1a}'
+    +'td.inst{font-weight:700;color:#1a1a1a}'
+    +'td.na{color:#ccc;text-align:center}'
+    +'td.hp{color:#888;font-size:10px}'
+    +'td.loan{color:#888;font-size:10px}'
+    +'td.sub{color:#555;font-size:10px}'
+    /* alternating row shade: every pair of rows (2 tr per entry) */
+    +'tr.row-a td{background:#fff}'
+    +'tr.row-b td{background:#f5f5f5}'
+    +'tr.row-a2 td{background:#fafafa}'
+    +'tr.row-b2 td{background:#f0f0f0}'
+    +'.pl-pdf-footer-note{font-size:8px;color:#aaa;text-align:right;margin-top:8px}'
+    +'@page{size:A4 portrait;margin:6mm}'
+    +'@media print{body{padding:0}}'
+    +'</style></head><body>'
+    +content
+    +'</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},600);
 }
 function closePLPdf(){document.getElementById('plPdfSheet').style.display='none';document.body.style.overflow='';}
 
@@ -1289,7 +1341,14 @@ function importBoth(){
 /* ══ MAX FINANCE ══ */
 var MF=[];
 function loadMF(){try{var r=localStorage.getItem(MF_KEY);if(r)MF=JSON.parse(r);}catch(e){MF=[];}}
-function saveMF(){try{localStorage.setItem(MF_KEY,JSON.stringify(MF));}catch(e){}}
+function saveMF(){
+  try{localStorage.setItem(MF_KEY,JSON.stringify(MF));}catch(e){}
+  if(!currentUser)return;
+  // Replace all rows: delete then insert
+  fetch(SB_URL+'/rest/v1/max_finance?id=gte.0',{method:'DELETE',headers:sbHeaders()}).then(function(){
+    if(MF.length)sbUpsert('max_finance',MF.map(function(m){return{brand:m.brand,model:m.model,amt:m.amt};}));
+  });
+}
 function addMF(){var b=gv('mfBrand').trim(),m=gv('mfModel').trim(),a=parseFloat(gv('mfAmt'));if(!b||!m||isNaN(a)||a<=0)return;MF.push({brand:b,model:m,amt:a});ge('mfBrand').value='';ge('mfModel').value='';ge('mfAmt').value='';saveMF();renderMFTable();}
 function removeMF(i){MF.splice(i,1);saveMF();renderMFTable();}
 function renderMFTable(){
@@ -1645,7 +1704,11 @@ async function loadAllFromCloud(){
 
     // Max Finance
     var mf=await sbGet('max_finance','select=*&order=id.asc');
-    if(mf.length)MF=mf.map(function(r){return{brand:r.brand,model:r.model,amt:r.amt};});
+    if(mf.length){
+      MF=mf.map(function(r){return{brand:r.brand,model:r.model,amt:r.amt};});
+    } else {
+      try{var mfRaw=localStorage.getItem(MF_KEY);if(mfRaw){var mfLocal=JSON.parse(mfRaw);if(Array.isArray(mfLocal)&&mfLocal.length){MF=mfLocal;saveMF();}}}catch(ex){}
+    }
 
     // Brand order
     var bo=await sbGet('brand_order','id=eq.1');
