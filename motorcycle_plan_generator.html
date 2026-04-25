@@ -1483,13 +1483,15 @@ function importMF(e){var file=e.target.files[0];if(!file)return;var reader=new F
 /* ══ SAVE / LOAD (generator) ══ */
 var saveTimer=null;
 var cloudReady=false; // block save() until cloud load completes
+var lastKnownGiftGroupCount=-1; // -1 = not yet loaded from cloud
 
 function save(){
   if(!cloudReady)return; // don't overwrite cloud data before it's loaded
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
-    // Always save to localStorage as instant backup
+    // Safety: if local giftGroups is empty but cloud had data, don't overwrite
+    if(snap.giftGroups.length===0&&lastKnownGiftGroupCount>0)return;
     try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
     // Push to Supabase if logged in
     if(currentUser){
@@ -1569,8 +1571,8 @@ function buildRows(){
 var giftDragGrp=null,giftDragIdx=null,grpDragIdx=null;
 var newGrpType='single',openColorGi=null,giftPreviewVisible=false;
 function setNewGrpType(t,el){newGrpType=t;document.querySelectorAll('.ng-type-opt').forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
-function addGiftGroup(){var name=gv('newGrpName').trim()||('Group '+(S.giftGroups.length+1));S.giftGroups.push({name:name,color:COLORS[S.giftGroups.length%COLORS.length],type:newGrpType,collapsed:false,gifts:[]});ge('newGrpName').value='';save();buildGiftGroups();}
-function removeGiftGroup(gi){if(!confirm('Delete group "'+S.giftGroups[gi].name+'"?'))return;S.giftGroups.splice(gi,1);save();buildGiftGroups();R();}
+function addGiftGroup(){var name=gv('newGrpName').trim()||('Group '+(S.giftGroups.length+1));S.giftGroups.push({name:name,color:COLORS[S.giftGroups.length%COLORS.length],type:newGrpType,collapsed:false,gifts:[]});ge('newGrpName').value='';lastKnownGiftGroupCount=S.giftGroups.length;save();buildGiftGroups();}
+function removeGiftGroup(gi){if(!confirm('Delete group "'+S.giftGroups[gi].name+'"?'))return;S.giftGroups.splice(gi,1);lastKnownGiftGroupCount=S.giftGroups.length;save();buildGiftGroups();R();}
 function expandAllGroups(){S.giftGroups.forEach(function(g){g.collapsed=false;});save();buildGiftGroups();}
 function collapseAllGroups(){S.giftGroups.forEach(function(g){g.collapsed=true;});save();buildGiftGroups();}
 function toggleGiftPreview(){giftPreviewVisible=!giftPreviewVisible;ge('giftPreviewBtn').textContent=giftPreviewVisible?'Hide Preview':'Preview Table';renderGiftPreview();ge('giftPreviewWrap').style.display=giftPreviewVisible?'':'none';}
@@ -1899,6 +1901,7 @@ function startRealtimeSync(){
       if(pl.length&&pl[0].updated_at>since)needsRefresh=true;
       if(gs.length&&gs[0].updated_at>since)needsRefresh=true;
       if(needsRefresh){
+        if(isSaving)return; // don't overwrite during active save
         lastSyncTime=now;
         await loadAllFromCloud();
         buildRows();buildGiftGroups();R();renderMFTable();renderPLList();
@@ -1941,7 +1944,8 @@ async function loadAllFromCloud(){
       if(d.p1rows)S.p1rows=d.p1rows;
       if(d.p2rows)S.p2rows=d.p2rows;
       if(d.giftGroups)S.giftGroups=d.giftGroups;
-    } else {loadSavedLocalFallback();}
+      lastKnownGiftGroupCount=S.giftGroups.length;
+    } else {loadSavedLocalFallback();lastKnownGiftGroupCount=S.giftGroups.length;}
     plSyncBrandOrder();
     lastSyncTime=new Date().toISOString();
     cloudReady=true; // now safe to save
@@ -1949,8 +1953,11 @@ async function loadAllFromCloud(){
 }
 
 /* ══ CLOUD SAVE ══ */
+var isSaving=false;
 async function saveAll(){
-  if(!currentUser)return;
+  if(!currentUser||!cloudReady)return;
+  if(isSaving)return; // prevent concurrent saves
+  isSaving=true;
   var btn=document.getElementById('saveBarStatus');
   btn.textContent='Saving…';btn.classList.add('show');
   try{
@@ -1962,7 +1969,17 @@ async function saveAll(){
     await fetch(SB_URL+'/rest/v1/max_finance?id=gte.0',{method:'DELETE',headers:sbHeaders()});
     if(MF.length)await sbUpsert('max_finance',MF.map(function(m){return{brand:m.brand,model:m.model,amt:m.amt};}));
     await sbUpsert('brand_order',[{id:1,order_list:PL_BRAND.order}]);
+    // Only save generator settings if giftGroups is non-empty OR explicitly cleared by user
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
+    // Safety: fetch current cloud giftGroups and only overwrite if our local copy is non-empty or matches
+    var currentGs=await sbGet('generator_settings','username=eq.'+encodeURIComponent(currentUser.username)+'&select=data');
+    var cloudGifts=currentGs.length&&currentGs[0].data&&currentGs[0].data.giftGroups;
+    if(!snap.giftGroups.length&&cloudGifts&&cloudGifts.length){
+      // Local is empty but cloud has data — restore from cloud instead of overwriting
+      snap.giftGroups=cloudGifts;
+      S.giftGroups=cloudGifts;
+      buildGiftGroups();
+    }
     await sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]);
     await logAction('save_all','all','all',null,{timestamp:new Date().toISOString()});
     plSaveLib();plSaveBrandOrder();plSaveSel();saveMF();
@@ -1972,6 +1989,7 @@ async function saveAll(){
     document.getElementById('tbSync').textContent='✓ Synced';document.getElementById('tbSync').classList.add('show');
     setTimeout(function(){document.getElementById('tbSync').classList.remove('show');},3000);
   }catch(e){btn.textContent='⚠ Save failed';console.error(e);}
+  isSaving=false;
   setTimeout(function(){btn.classList.remove('show');},4000);
 }
 setInterval(saveAll,5*60*1000);
