@@ -1122,7 +1122,7 @@ function openPLPdf(){
       }
       rows+='<tr class="'+r1cls+'">'
         +'<td class="left" rowspan="2">'+esc(brand)+'</td>'
-        +'<td class="model" rowspan="2">'+esc(e.model||'—')+'</td>'
+        +'<td class="model" rowspan="2" style="white-space:normal;word-break:break-word;overflow:visible">'+esc(e.model||'—')+'</td>'
         +'<td class="cash">'+rm(e.cash)+'</td>'
         +'<td class="dp">'+rm(e.dpk)+'</td>'
         +yrCells
@@ -1196,7 +1196,7 @@ function printPLPdf(){
     +'th.left{text-align:left}'
     +'td{padding:5px 4px;border:1px solid #ddd;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:'+fs+'px;text-align:right}'
     +'td.left{text-align:left;font-weight:700}'
-    +'td.model{text-align:left}'
+    +'td.model{text-align:left;white-space:normal;word-break:break-word;overflow:visible}'
     +'td.cash{font-weight:600;color:#1a1a1a}'
     +'td.dp{font-weight:600;color:#1a1a1a}'
     +'td.inst{font-weight:700;color:#1a1a1a}'
