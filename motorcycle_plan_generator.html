@@ -1482,7 +1482,10 @@ function importMF(e){var file=e.target.files[0];if(!file)return;var reader=new F
 
 /* ══ SAVE / LOAD (generator) ══ */
 var saveTimer=null;
+var cloudReady=false; // block save() until cloud load completes
+
 function save(){
+  if(!cloudReady)return; // don't overwrite cloud data before it's loaded
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
@@ -1854,6 +1857,7 @@ function applyPermissions(){
 function doLogout(){
   if(!confirm('Sign out?'))return;
   if(realtimeInterval)clearInterval(realtimeInterval);
+  cloudReady=false;
   localStorage.removeItem('hm_session');
   currentUser=null;
   document.getElementById('mainApp').style.display='none';
@@ -1940,7 +1944,8 @@ async function loadAllFromCloud(){
     } else {loadSavedLocalFallback();}
     plSyncBrandOrder();
     lastSyncTime=new Date().toISOString();
-  }catch(e){console.warn('Cloud load error:',e);}
+    cloudReady=true; // now safe to save
+  }catch(e){console.warn('Cloud load error:',e);cloudReady=true;}
 }
 
 /* ══ CLOUD SAVE ══ */
