@@ -521,11 +521,30 @@ body.logged-in{padding-top:36px}
         <div class="log-filter">
           <select id="logFilterUser"><option value="">All Users</option></select>
           <select id="logFilterAction"><option value="">All Actions</option>
-            <option value="update_pricelist">Pricelist</option>
-            <option value="delete_pricelist">Delete PL</option>
-            <option value="update_generator">Generator</option>
-            <option value="update_mf">Max Finance</option>
-            <option value="login">Login</option>
+            <option value="login">🔑 Login</option>
+            <option value="add_pricelist">➕ Add Pricelist</option>
+            <option value="edit_pricelist">✏️ Edit Pricelist</option>
+            <option value="delete_pricelist">🗑️ Delete Pricelist</option>
+            <option value="add_mf">➕ Add Max Finance</option>
+            <option value="delete_mf">🗑️ Delete Max Finance</option>
+            <option value="add_gift_group">🎁 Add Gift Group</option>
+            <option value="delete_gift_group">🗑️ Delete Gift Group</option>
+            <option value="add_gift_item">🎁 Add Gift Item</option>
+            <option value="delete_gift_item">🗑️ Delete Gift Item</option>
+            <option value="add_row">➕ Add Row</option>
+            <option value="delete_row">🗑️ Delete Row</option>
+            <option value="change_tenure">🔄 Change Tenure</option>
+            <option value="generate_html">⚙️ Generate HTML</option>
+            <option value="generate_quotation">📄 Generate Quotation</option>
+            <option value="import_all">📂 Import All</option>
+            <option value="save_all">💾 Save All</option>
+            <option value="add_user">👤 Add User</option>
+            <option value="delete_user">🗑️ Delete User</option>
+            <option value="enable_user">✅ Enable User</option>
+            <option value="disable_user">🚫 Disable User</option>
+            <option value="reset_password">🔑 Reset Password</option>
+            <option value="update_permission">🔒 Update Permission</option>
+            <option value="update_profile">👤 Update Profile</option>
           </select>
           <input type="date" id="logFilterDate" style="color:#c9d1d9">
           <button onclick="loadLog()" style="padding:5px 10px;border:1px solid #30363d;border-radius:6px;background:#1f6feb;color:#fff;font-size:11px;cursor:pointer">Load</button>
@@ -1082,13 +1101,13 @@ function renderPLList(){
     var canEditPL=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_pricelist!==false);
     if(!canEditPL)del.style.display='none';
     del.onclick=function(ev){ev.stopPropagation();if(!confirm('Delete '+e.brand+' '+e.model+'?'))return;
-      var delId=e.id;
+      var delId=e.id;var delName=e.brand+' '+e.model;
       PL.list=PL.list.filter(function(x){return x.id!==delId;});
       PL.checked.delete(delId);
       if(PL.sel===delId){PL.sel=null;document.getElementById('plDetail').style.display='none';document.getElementById('plLoadCalcBtn').disabled=true;}
       plSaveLib();plSaveSel();
-      // Delete from Supabase
       if(currentUser)sbDelete('pricelist',{id:delId});
+      logAction('delete_pricelist','pricelist',delName,{brand:e.brand,model:e.model},null);
       renderPLList();};
     content.querySelector('.pl-item-top').appendChild(del);
     div.onclick=function(ev){if(ev.target===ck)return;PL.sel=e.id;renderPLList();showPLDetail(e.id);};
@@ -1150,9 +1169,11 @@ function savePLEntry(){
     rtax:gfv('rtax'),hand:gfv('hand'),other:gfv('other'),
     dpk:gfv('dpk'),dph:gfv('dph'),
     pa:gfv('pa'),loanyear:gfv('loanyear')};
+  var isEdit=!!plEditId;
   if(plEditId){var idx=PL.list.findIndex(function(x){return x.id===plEditId;});if(idx>=0)PL.list[idx]=entry;else PL.list.push(entry);}
   else PL.list.push(entry);
   plSaveLib();plSyncBrandOrder();plSaveBrandOrder();
+  logAction(isEdit?'edit_pricelist':'add_pricelist','pricelist',brand+' '+model,null,{brand:brand,model:model,cash:entry.cash,hp:entry.hp});
   closePLForm();PL.sel=entry.id;renderPLList();showPLDetail(entry.id);
 }
 
@@ -1198,6 +1219,7 @@ function importAll(e){
       if(d.maxFinance&&Array.isArray(d.maxFinance)){MF=d.maxFinance;saveMF();changed.push('Max Finance ('+d.maxFinance.length+')');}
       if(d.gifts&&Array.isArray(d.gifts)){S.giftGroups=d.gifts;save();changed.push('Gifts ('+d.gifts.length+' groups)');}
       plSyncBrandOrder();renderPLList();renderMFTable();buildGiftGroups();R();
+      logAction('import_all','all','all',null,{pricelist:d.pricelist?d.pricelist.length:0,gifts:d.gifts?d.gifts.length:0,mf:d.maxFinance?d.maxFinance.length:0});
       alert('Imported:\n'+changed.join('\n'));
     }catch(err){alert('Could not read file. Make sure it is a valid HuangMotor backup.');}
   };
@@ -1516,8 +1538,19 @@ function saveMF(){
     if(MF.length)sbUpsert('max_finance',MF.map(function(m){return{brand:m.brand,model:m.model,amt:m.amt};}));
   });
 }
-function addMF(){var b=gv('mfBrand').trim(),m=gv('mfModel').trim(),a=parseFloat(gv('mfAmt'));if(!b||!m||isNaN(a)||a<=0)return;MF.push({brand:b,model:m,amt:a});ge('mfBrand').value='';ge('mfModel').value='';ge('mfAmt').value='';saveMF();renderMFTable();}
-function removeMF(i){MF.splice(i,1);saveMF();renderMFTable();}
+function addMF(){
+  var b=gv('mfBrand').trim(),m=gv('mfModel').trim(),a=parseFloat(gv('mfAmt'));
+  if(!b||!m||isNaN(a)||a<=0)return;
+  MF.push({brand:b,model:m,amt:a});
+  ge('mfBrand').value='';ge('mfModel').value='';ge('mfAmt').value='';
+  saveMF();renderMFTable();
+  logAction('add_mf','max_finance',b+' '+m,null,{brand:b,model:m,amt:a});
+}
+function removeMF(i){
+  var removed=MF[i];
+  MF.splice(i,1);saveMF();renderMFTable();
+  logAction('delete_mf','max_finance',(removed?removed.brand+' '+removed.model:'#'+i),removed,null);
+}
 function renderMFTable(){
   var t=CLT[CL];var q=gv('mfSearch').toLowerCase().trim();
   var filtered=MF.map(function(r,i){return{r:r,i:i};}).filter(function(x){return !q||(x.r.brand+' '+x.r.model).toLowerCase().indexOf(q)>=0;});
@@ -1571,16 +1604,18 @@ function getSharedFee(){return gv('pfee')||'RM450';}
 function sw(t){['info','plans','gifts'].forEach(function(x){ge('p'+x).style.display=x===t?'':'none';});ge('mainTabs').querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('on',['info','plans','gifts'][i]===t);});}
 function swL(l,el){S.lang=l;el.closest('.out-tabs').querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');if(S.mode==='preview')R();}
 function setMonths(arr,el){
+  var prev=S.months.slice();
   S.months=arr;ge('monthSeg').querySelectorAll('.seg-opt').forEach(function(o){o.classList.remove('on');});el.classList.add('on');
   ge('pfee').value='';buildRows();
+  logAction('change_tenure','generator','months',{months:prev},{months:arr});
   if(C.tsp>0&&C.dps.length>0)importBoth();else{save();R();}
 }
 function swDescLang(l,el){['en','ms','zh'].forEach(function(x){ge('desc_'+x).style.display=x===l?'':'none';});ge('descLangTabs').querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');}
 function clearModelDesc(){ge('modelName').value='';ge('desc_en').value='';ge('desc_ms').value='';ge('desc_zh').value='';save();R();}
 
 /* ══ ROW EDITOR ══ */
-function addRow(p){S['p'+p+'rows'].push({label:'',vals:{}});buildRows();save();R();}
-function removeRow(p,i){S['p'+p+'rows'].splice(i,1);buildRows();save();R();}
+function addRow(p){S['p'+p+'rows'].push({label:'',vals:{}});buildRows();save();R();logAction('add_row','generator','plan'+p,null,{plan:p,rowCount:S['p'+p+'rows'].length});}
+function removeRow(p,i){var removed=S['p'+p+'rows'][i];S['p'+p+'rows'].splice(i,1);buildRows();save();R();logAction('delete_row','generator','plan'+p,{label:removed?removed.label:''},null);}
 function buildRows(){
   [1,2].forEach(function(p){
     var cont=ge('p'+p+'rows');cont.innerHTML='';
@@ -1619,8 +1654,8 @@ async function saveGifts(){
   }catch(e){console.warn('saveGifts error:',e);}
 }
 
-function addGiftGroup(){var name=gv('newGrpName').trim()||('Group '+(S.giftGroups.length+1));S.giftGroups.push({name:name,color:COLORS[S.giftGroups.length%COLORS.length],type:newGrpType,collapsed:false,gifts:[]});ge('newGrpName').value='';saveGifts();buildGiftGroups();}
-function removeGiftGroup(gi){if(!confirm('Delete group "'+S.giftGroups[gi].name+'"?'))return;S.giftGroups.splice(gi,1);saveGifts();buildGiftGroups();R();}
+function addGiftGroup(){var name=gv('newGrpName').trim()||('Group '+(S.giftGroups.length+1));S.giftGroups.push({name:name,color:COLORS[S.giftGroups.length%COLORS.length],type:newGrpType,collapsed:false,gifts:[]});ge('newGrpName').value='';saveGifts();buildGiftGroups();logAction('add_gift_group','generator',name,null,{name:name,type:newGrpType});}
+function removeGiftGroup(gi){if(!confirm('Delete group "'+S.giftGroups[gi].name+'"?'))return;var removed=S.giftGroups[gi];S.giftGroups.splice(gi,1);saveGifts();buildGiftGroups();R();logAction('delete_gift_group','generator',removed.name,{name:removed.name,gifts:removed.gifts.length},null);}
 function expandAllGroups(){S.giftGroups.forEach(function(g){g.collapsed=false;});save();buildGiftGroups();}
 function collapseAllGroups(){S.giftGroups.forEach(function(g){g.collapsed=true;});save();buildGiftGroups();}
 function toggleGiftPreview(){giftPreviewVisible=!giftPreviewVisible;ge('giftPreviewBtn').textContent=giftPreviewVisible?'Hide Preview':'Preview Table';renderGiftPreview();ge('giftPreviewWrap').style.display=giftPreviewVisible?'':'none';}
@@ -1690,13 +1725,13 @@ function buildGiftGroups(){
       var del=document.createElement('button');del.className='btn btn-red';del.style.cssText='font-size:9px;padding:1px 5px;flex-shrink:0;';del.textContent='×';
       var canGG=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
       if(!canGG)del.style.display='none';
-      del.onclick=(function(ggi,ii){return function(e){e.stopPropagation();S.giftGroups[ggi].gifts.splice(ii,1);saveGifts();buildGiftGroups();R();};})(gi,idx);
+      del.onclick=(function(ggi,ii){return function(e){e.stopPropagation();var removed=S.giftGroups[ggi].gifts[ii];S.giftGroups[ggi].gifts.splice(ii,1);saveGifts();buildGiftGroups();R();logAction('delete_gift_item','generator',S.giftGroups[ggi]?S.giftGroups[ggi].name:'group',{name:removed?removed.name:''},null);};})(gi,idx);
       row.appendChild(strip);row.appendChild(handle);row.appendChild(inp);row.appendChild(ckGrp);row.appendChild(del);body.appendChild(row);
     });
     var addRow=document.createElement('div');addRow.className='gift-group-add';
     var addInp=document.createElement('input');addInp.type='text';addInp.placeholder='New gift...';
     var addBtn=document.createElement('button');addBtn.className='btn';addBtn.textContent='+ Add';addBtn.style.cssText='white-space:nowrap;font-size:11px;';
-    addBtn.onclick=(function(ggi,ainp){return function(){var n=ainp.value.trim();if(!n)return;S.giftGroups[ggi].gifts.push({name:n,p1:false,p2:false});ainp.value='';saveGifts();buildGiftGroups();R();};})(gi,addInp);
+    addBtn.onclick=(function(ggi,ainp){return function(){var n=ainp.value.trim();if(!n)return;S.giftGroups[ggi].gifts.push({name:n,p1:false,p2:false});ainp.value='';saveGifts();buildGiftGroups();R();logAction('add_gift_item','generator',S.giftGroups[ggi].name,null,{item:n,group:S.giftGroups[ggi].name});};})(gi,addInp);
     addRow.appendChild(addInp);addRow.appendChild(addBtn);body.appendChild(addRow);
     outer.appendChild(hdr);outer.appendChild(body);wrap.appendChild(outer);
   });
@@ -1727,6 +1762,7 @@ function R(){
 /* ══ CODE GEN ══ */
 function genCode(){
   if(!gv('pfee').trim()){alert('Processing Fee is required.\nPlease fill it in the Info tab.');sw('info');ge('pfee').focus();return;}
+  logAction('generate_html','generator',gv('modelName')||'(no model)',null,{model:gv('modelName'),lang:S.lang});
   S.mode='code';ge('previewWrap').style.display='none';var cw=ge('codeWrap');cw.style.display='flex';
   ge('copyBtn').style.display='';ge('panelLabel').textContent='HTML Code';
   ge('panelHint').textContent='Paste into webpage <body>. Language auto-detected from browser.';
@@ -1778,6 +1814,7 @@ function openPDF(){
 
   ge('pdfInner').innerHTML='<div class="pdf-header"><div><div class="pdf-co">HuangMotor M Sdn Bhd</div><div class="pdf-co-sub">Motor Dealer · Authorised Sales &amp; Service</div></div><div class="pdf-date-block"><b>'+L.quotation+'</b><br>'+L.date+': '+dateStr+'</div></div><div class="pdf-model">'+esc(model)+'</div>'+(desc?'<div class="pdf-desc">'+esc(desc)+'</div>':'')+planSec(1)+planSec(2)+'<p style="font-size:10px;color:#888;margin-top:10px">'+L.validNote+'</p>'+preparerBlock+'<div class="pdf-footer">'+L.footer+'<br>'+L.footerSub+'</div>';
   ge('pdfSheet').style.display='block';document.body.style.overflow='hidden';
+  logAction('generate_quotation','generator',model,null,{model:model,lang:lang,preparedBy:currentUser?currentUser.username:''});
 }
 function closePDF(){ge('pdfSheet').style.display='none';document.body.style.overflow='';}
 function printQuotePdf(){
@@ -2223,16 +2260,48 @@ async function loadLog(){
   sel.innerHTML='<option value="">All Users</option>';
   users.forEach(function(u){sel.innerHTML+='<option value="'+esc(u.username)+'"'+(u.username===cur?' selected':'')+'>'+esc(u.username)+'</option>';});
   if(!rows.length){document.getElementById('logTableWrap').innerHTML='<p style="font-size:11px;color:#8b949e;padding:10px 0">No records found.</p>';return;}
-  var html='<table class="log-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead><tbody>';
+  var actionIcon={
+    login:'🔑',save_all:'💾',
+    add_pricelist:'➕',edit_pricelist:'✏️',delete_pricelist:'🗑️',
+    add_mf:'➕',delete_mf:'🗑️',
+    add_gift_group:'🎁',delete_gift_group:'🗑️',add_gift_item:'🎁',delete_gift_item:'🗑️',
+    add_row:'➕',delete_row:'🗑️',
+    change_tenure:'🔄',generate_html:'⚙️',generate_quotation:'📄',
+    import_all:'📂',export_all:'💾',
+    add_user:'👤',delete_user:'🗑️',enable_user:'✅',disable_user:'🚫',
+    reset_password:'🔑',update_permission:'🔒',
+    update_profile:'👤'
+  };
+  var html='<table class="log-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Record</th><th>Detail</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var t=new Date(r.created_at);
-    var ts=t.getDate().toString().padStart(2,'0')+'/'+(t.getMonth()+1).toString().padStart(2,'0')+' '+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
-    var detail=r.after_data?JSON.stringify(r.after_data).slice(0,60):'';
+    var ts=t.getDate().toString().padStart(2,'0')+'/'+(t.getMonth()+1).toString().padStart(2,'0')+'/'+t.getFullYear()+' '+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
+    var icon=actionIcon[r.action]||'•';
+    // Build readable detail
+    var detail='';
+    var af=r.after_data;var bf=r.before_data;
+    if(af){
+      if(af.brand&&af.model)detail=af.brand+' '+af.model+(af.cash?' — RM'+af.cash:'');
+      else if(af.name)detail=af.name+(af.type?' ('+af.type+')':'');
+      else if(af.item)detail=af.item+' → '+af.group;
+      else if(af.display_name)detail=af.display_name+(af.position?' · '+af.position:'');
+      else if(af.field)detail=af.field+': '+af.value;
+      else if(af.model)detail=af.model+(af.preparedBy?' by '+af.preparedBy:'');
+      else if(af.months)detail=af.months.join('·')+'m';
+      else if(af.count)detail=af.count+' entries';
+      else if(af.pricelist!==undefined)detail='PL:'+af.pricelist+' MF:'+af.mf+' Gifts:'+af.gifts;
+      else if(af.amt)detail='RM'+af.amt;
+      else if(af.rowCount)detail='Plan '+af.plan+', '+af.rowCount+' rows';
+      else detail=JSON.stringify(af).slice(0,60);
+    } else if(bf){
+      detail=JSON.stringify(bf).slice(0,60);
+    }
     html+='<tr>'
       +'<td class="log-time">'+ts+'</td>'
       +'<td class="log-user">'+esc(r.username)+'</td>'
-      +'<td class="log-action">'+esc(r.action)+'</td>'
-      +'<td class="log-detail" title="'+esc(JSON.stringify(r.after_data))+'">'+esc(detail)+'</td>'
+      +'<td><span class="log-action">'+icon+' '+esc(r.action.replace(/_/g,' '))+'</span></td>'
+      +'<td style="font-size:11px;color:#c9d1d9">'+esc(r.record_id||'')+'</td>'
+      +'<td class="log-detail" title="'+esc(JSON.stringify(af))+'">'+esc(detail)+'</td>'
       +'</tr>';
   });
   html+='</tbody></table>';
