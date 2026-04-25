@@ -1028,6 +1028,8 @@ function renderPLList(){
     content.innerHTML='<div class="pl-item-top"><span class="pl-item-name">'+esc(e.brand)+' '+esc(e.model)+'</span><span class="pl-item-cash">RM '+Number(e.cash||0).toLocaleString()+'</span></div>'+(chips?'<div class="pl-item-chips">'+chips+'</div>':'');
     // delete btn
     var del=document.createElement('button');del.className='pl-item-del';del.style.cssText='display:block;position:static;margin-left:auto;flex-shrink:0;';del.textContent='✕';del.title='Delete';
+    var canEditPL=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_pricelist!==false);
+    if(!canEditPL)del.style.display='none';
     del.onclick=function(ev){ev.stopPropagation();if(!confirm('Delete '+e.brand+' '+e.model+'?'))return;
       var delId=e.id;
       PL.list=PL.list.filter(function(x){return x.id!==delId;});
@@ -1471,7 +1473,8 @@ function renderMFTable(){
   var wrap=ge('mfTableWrap');
   if(!filtered.length){wrap.innerHTML='<div class="mf-empty">'+(MF.length?'No results':'No entries yet')+'</div>';return;}
   var html='<table class="mf-table"><thead><tr><th>'+t.mfBrandH+'</th><th>'+t.mfModelH+'</th><th style="text-align:right">'+t.mfAmtH+'</th><th></th></tr></thead><tbody>';
-  filtered.forEach(function(x){html+='<tr><td>'+esc(x.r.brand)+'</td><td>'+esc(x.r.model)+'</td><td class="amt">'+x.r.amt.toLocaleString()+'</td><td><button class="del-btn" onclick="removeMF('+x.i+')">×</button></td></tr>';});
+  var canEditMF=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_mf!==false);
+  filtered.forEach(function(x){html+='<tr><td>'+esc(x.r.brand)+'</td><td>'+esc(x.r.model)+'</td><td class="amt">'+x.r.amt.toLocaleString()+'</td><td>'+(canEditMF?'<button class="del-btn" onclick="removeMF('+x.i+')">×</button>':'')+'</td></tr>';});
   html+='</tbody></table>';wrap.innerHTML=html;
 }
 function exportMF(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(MF,null,2)],{type:'application/json'}));a.download='max_finance_'+(new Date().toISOString().slice(0,10))+'.json';a.click();URL.revokeObjectURL(a.href);}
@@ -1543,6 +1546,8 @@ function buildRows(){
         cw.appendChild(sp);cw.appendChild(ci);cells.appendChild(cw);
       });
       var del=document.createElement('button');del.className='btn btn-red';del.textContent='×';
+      var canEditGen=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
+      if(!canEditGen)del.style.display='none';
       del.onclick=(function(pp,rr){return function(){removeRow(pp,rr);};})(p,ri);
       wrap.appendChild(li);wrap.appendChild(cells);wrap.appendChild(del);cont.appendChild(wrap);
     });
@@ -1604,6 +1609,8 @@ function buildGiftGroups(){
     typeBadge.onclick=(function(ggi){return function(e){e.stopPropagation();S.giftGroups[ggi].type=S.giftGroups[ggi].type==='single'?'multi':'single';save();buildGiftGroups();R();};})(gi);
     var countBadge=document.createElement('span');countBadge.style.cssText='font-size:10px;color:#aaa;white-space:nowrap;';countBadge.textContent=grp.gifts.length+' gift'+(grp.gifts.length!==1?'s':'');
     var delGrp=document.createElement('button');delGrp.className='btn btn-red';delGrp.style.cssText='font-size:9px;padding:2px 6px;flex-shrink:0;line-height:1.4;';delGrp.textContent='✕';delGrp.title='Delete group';
+    var canG=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
+    if(!canG)delGrp.style.display='none';
     delGrp.onclick=(function(ggi){return function(e){e.stopPropagation();removeGiftGroup(ggi);};})(gi);
     var arrow=document.createElement('span');arrow.className='g-arrow';arrow.textContent='▼';
     arrow.onclick=(function(ggi,oel){return function(e){e.stopPropagation();oel.classList.toggle('collapsed');S.giftGroups[ggi].collapsed=oel.classList.contains('collapsed');save();};})(gi,outer);
@@ -1630,6 +1637,8 @@ function buildGiftGroups(){
         lbl.appendChild(ck);lbl.appendChild(document.createTextNode(ki===0?'P1':'P2'));ckGrp.appendChild(lbl);
       });
       var del=document.createElement('button');del.className='btn btn-red';del.style.cssText='font-size:9px;padding:1px 5px;flex-shrink:0;';del.textContent='×';
+      var canGG=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
+      if(!canGG)del.style.display='none';
       del.onclick=(function(ggi,ii){return function(e){e.stopPropagation();S.giftGroups[ggi].gifts.splice(ii,1);saveGifts();buildGiftGroups();R();};})(gi,idx);
       row.appendChild(strip);row.appendChild(handle);row.appendChild(inp);row.appendChild(ckGrp);row.appendChild(del);body.appendChild(row);
     });
@@ -1997,8 +2006,9 @@ function switchAdminTab(tab,el){
 
 async function loadUserTable(){
   var rows=await sbGet('users','select=username,role,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active&order=username.asc');
-  var html='<table class="user-table"><thead><tr><th>Username</th><th>Role</th><th>PL Edit</th><th>Gen Edit</th><th>MF Edit</th><th>Status</th><th></th></tr></thead><tbody>';
+  var html='<table class="user-table"><thead><tr><th>Username</th><th>Role</th><th>PL Edit</th><th>Gen Edit</th><th>MF Edit</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   rows.forEach(function(u){
+    var isSelf=u.username===currentUser.username;
     html+='<tr>'
       +'<td>'+esc(u.username)+'</td>'
       +'<td><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:'+(u.role==='admin'?'#2d1a0d':'#0d1a2d')+';color:'+(u.role==='admin'?'#f0a040':'#58a6ff')+'">'+u.role+'</span></td>'
@@ -2006,8 +2016,10 @@ async function loadUserTable(){
       +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_generator!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_generator\',this.checked)"></td>'
       +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_mf!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_mf\',this.checked)"></td>'
       +'<td><span class="user-status '+(u.is_active!==false?'active':'inactive')+'">'+(u.is_active!==false?'Active':'Disabled')+'</span></td>'
-      +'<td><button onclick="toggleUserActive(\''+u.username+'\','+(u.is_active!==false?'false':'true')+')" style="padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">'+(u.is_active!==false?'Disable':'Enable')+'</button>'
-      +(u.username!==currentUser.username?'<button onclick="resetPassword(\''+u.username+'\')" style="margin-left:4px;padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">Reset PW</button>':'')
+      +'<td style="display:flex;gap:4px;flex-wrap:wrap">'
+      +'<button onclick="toggleUserActive(\''+u.username+'\','+(u.is_active!==false?'false':'true')+')" style="padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">'+(u.is_active!==false?'Disable':'Enable')+'</button>'
+      +(!isSelf?'<button onclick="resetPassword(\''+u.username+'\')" style="padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">Reset PW</button>':'')
+      +(!isSelf?'<button onclick="deleteUser(\''+u.username+'\')" style="padding:2px 8px;border:1px solid #6a2020;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#f85149">Delete</button>':'')
       +'</td></tr>';
   });
   html+='</tbody></table>';
@@ -2036,6 +2048,14 @@ async function toggleUserActive(username,active){
   await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({is_active:active})});
   await logAction(active?'enable_user':'disable_user','users',username,null,{is_active:active});
   await loadUserTable();
+}
+
+async function deleteUser(username){
+  if(!confirm('Permanently delete user "'+username+'"?\nThis cannot be undone.'))return;
+  await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'DELETE',headers:sbHeaders()});
+  await logAction('delete_user','users',username,null,{});
+  await loadUserTable();
+  alert('User "'+username+'" deleted.');
 }
 
 async function resetPassword(username){
