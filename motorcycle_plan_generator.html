@@ -362,6 +362,43 @@ textarea{resize:vertical;min-height:56px;line-height:1.6}
 .tb-logout{padding:3px 10px;border:1px solid #30363d;border-radius:5px;font-size:10px;cursor:pointer;background:none;color:#8b949e}
 .tb-logout:hover{border-color:#f85149;color:#f85149}
 body.logged-in{padding-top:36px}
+/* ── ADMIN PANEL ── */
+#adminPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99998;overflow:auto}
+.admin-box{background:#161b22;border:1px solid #30363d;border-radius:12px;width:700px;max-width:95vw;margin:40px auto;padding:0;overflow:hidden}
+.admin-tabs{display:flex;border-bottom:1px solid #21262d}
+.admin-tab{padding:12px 20px;font-size:12px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent}
+.admin-tab.on{color:#58a6ff;border-bottom-color:#58a6ff}
+.admin-body{padding:1.2rem}
+.admin-title{font-size:14px;font-weight:700;color:#f0f6fc;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center}
+.admin-close{background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer;padding:0}
+.admin-close:hover{color:#f85149}
+/* users table */
+.user-table{width:100%;border-collapse:collapse;font-size:12px}
+.user-table th{background:#0d1117;color:#8b949e;padding:8px 10px;text-align:left;border-bottom:1px solid #21262d;font-weight:600}
+.user-table td{padding:8px 10px;border-bottom:1px solid #1a1f2e;color:#c9d1d9;vertical-align:middle}
+.user-table tr:hover td{background:#1a1f2e}
+.perm-ck{accent-color:#1f6feb;width:14px;height:14px;cursor:pointer}
+.user-status{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.user-status.active{background:#1a3a1a;color:#3fb950}
+.user-status.inactive{background:#3a1a1a;color:#f85149}
+/* add user form */
+.add-user-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.add-user-grid input,.add-user-grid select{padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9;font-size:12px;width:100%}
+.add-user-btn{padding:7px 16px;background:#238636;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.add-user-btn:hover{background:#2ea043}
+/* change log */
+.log-table{width:100%;border-collapse:collapse;font-size:11px}
+.log-table th{background:#0d1117;color:#8b949e;padding:6px 8px;text-align:left;border-bottom:1px solid #21262d;font-weight:600}
+.log-table td{padding:6px 8px;border-bottom:1px solid #1a1f2e;color:#c9d1d9;vertical-align:top}
+.log-table tr:hover td{background:#1a1f2e}
+.log-user{color:#58a6ff;font-weight:600}
+.log-action{color:#3fb950;font-size:10px}
+.log-time{color:#8b949e;font-size:10px;white-space:nowrap}
+.log-detail{color:#8b949e;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-restore-btn{padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e}
+.log-restore-btn:hover{border-color:#58a6ff;color:#58a6ff}
+.log-filter{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.log-filter select,.log-filter input{padding:5px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9;font-size:11px}
 @media(max-width:1100px){.gw{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}}
 @media(max-width:700px){.gw{grid-template-columns:1fr}}
 </style>
@@ -395,7 +432,59 @@ body.logged-in{padding-top:36px}
   <span class="tb-brand">HuangMotor Generator</span>
   <span class="tb-user" id="tbUser"></span>
   <span class="tb-sync" id="tbSync">✓ Synced</span>
+  <button id="tbAdmin" onclick="openAdmin()" style="display:none;padding:3px 10px;border:1px solid #30363d;border-radius:5px;font-size:10px;cursor:pointer;background:none;color:#f0c040">⚙ Admin</button>
   <button class="tb-logout" onclick="doLogout()">Sign Out</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel">
+  <div class="admin-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.2rem;border-bottom:1px solid #21262d">
+      <span style="font-size:14px;font-weight:700;color:#f0f6fc">⚙ Admin Panel</span>
+      <button class="admin-close" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="admin-tabs">
+      <div class="admin-tab on" onclick="switchAdminTab('users',this)">👥 Users</div>
+      <div class="admin-tab" onclick="switchAdminTab('log',this)">📋 Change Log</div>
+    </div>
+    <div class="admin-body">
+      <!-- USERS TAB -->
+      <div id="adminUsers">
+        <div style="font-size:11px;color:#8b949e;margin-bottom:10px">Manage accounts and permissions. Admin role has full access.</div>
+        <div class="add-user-grid" style="grid-template-columns:1fr 1fr 1fr 1fr auto">
+          <input type="text" id="newUsername" placeholder="Username">
+          <input type="password" id="newPassword" placeholder="Password">
+          <select id="newRole">
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#8b949e">
+            <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="newCanEdit" checked class="perm-ck"> Edit</label>
+          </div>
+          <button class="add-user-btn" onclick="addUser()">+ Add</button>
+        </div>
+        <div id="userTableWrap" style="overflow-x:auto"></div>
+      </div>
+      <!-- LOG TAB -->
+      <div id="adminLog" style="display:none">
+        <div class="log-filter">
+          <select id="logFilterUser"><option value="">All Users</option></select>
+          <select id="logFilterAction"><option value="">All Actions</option>
+            <option value="update_pricelist">Pricelist</option>
+            <option value="delete_pricelist">Delete PL</option>
+            <option value="update_generator">Generator</option>
+            <option value="update_mf">Max Finance</option>
+            <option value="login">Login</option>
+          </select>
+          <input type="date" id="logFilterDate" style="color:#c9d1d9">
+          <button onclick="loadLog()" style="padding:5px 10px;border:1px solid #30363d;border-radius:6px;background:#1f6feb;color:#fff;font-size:11px;cursor:pointer">Load</button>
+        </div>
+        <div style="overflow-x:auto;max-height:400px;overflow-y:auto" id="logTableWrap">
+          <p style="font-size:11px;color:#8b949e">Click Load to fetch change history.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="gw" id="mainApp" style="display:none">
@@ -782,7 +871,7 @@ body.logged-in{padding-top:36px}
 <div id="pdfSheet">
   <div class="pdf-inner" id="pdfInner"></div>
   <div class="pdf-actions">
-    <button class="pdf-act-btn pdf-print-btn" onclick="window.print()">🖨 Print / Save PDF</button>
+    <button class="pdf-act-btn pdf-print-btn" onclick="printQuotePdf()">🖨 Print / Save PDF</button>
     <button class="pdf-act-btn pdf-close-btn" onclick="closePDF()">✕ Close</button>
   </div>
 </div>
@@ -1612,6 +1701,40 @@ function openPDF(){
   ge('pdfSheet').style.display='block';document.body.style.overflow='hidden';
 }
 function closePDF(){ge('pdfSheet').style.display='none';document.body.style.overflow='';}
+function printQuotePdf(){
+  var content=document.getElementById('pdfInner').innerHTML;
+  var win=window.open('','_blank','width=900,height=750');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quotation</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:14mm 16mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.pdf-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #1a1a1a}'
+    +'.pdf-co{font-size:16px;font-weight:700}'
+    +'.pdf-co-sub{font-size:10px;color:#666;margin-top:2px}'
+    +'.pdf-date-block{text-align:right;font-size:11px;color:#555}'
+    +'.pdf-model{font-size:18px;font-weight:700;margin-bottom:4px}'
+    +'.pdf-desc{font-size:11px;color:#444;margin-bottom:12px;line-height:1.6;white-space:pre-wrap}'
+    +'.pdf-sec{margin-bottom:14px}'
+    +'.pdf-sec-title{font-size:12px;font-weight:700;padding:5px 8px;background:#f0f0f0;border-left:3px solid #1a1a1a;margin-bottom:7px}'
+    +'.pdf-table{width:100%;border-collapse:collapse;font-size:11px}'
+    +'.pdf-table th{background:#1a1a1a;color:#fff;padding:6px 8px;text-align:center;border:1px solid #1a1a1a}'
+    +'.pdf-table th:first-child{text-align:left}'
+    +'.pdf-table td{padding:5px 8px;border:1px solid #ddd;text-align:center}'
+    +'.pdf-table td:first-child{text-align:left;font-weight:500}'
+    +'.pdf-table tr:nth-child(even) td{background:#f9f9f9}'
+    +'.pdf-gift-title{font-size:11px;font-weight:700;margin:8px 0 4px}'
+    +'.pdf-gift-list{padding-left:1rem}'
+    +'.pdf-gift-list li{font-size:11px;margin:2px 0}'
+    +'.pdf-footer{text-align:center;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:6px;margin-top:20px}'
+    +'@page{size:A4 portrait;margin:8mm}'
+    +'@media print{body{padding:0}}'
+    +'</style></head><body>'
+    +content
+    +'</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},600);
+}
 
 /* ══ PWA INSTALL ══════════════════════════════════ */
 var deferredPrompt=null;
@@ -1676,18 +1799,21 @@ async function doLogin(){
   var pass=document.getElementById('loginPass').value||'';
   if(!user||!pass){document.getElementById('loginErr').textContent='Please enter username and password.';return;}
   var btn=document.getElementById('loginBtn');
-  btn.disabled=true;
-  document.getElementById('loginSpinner').style.display='block';
-  document.getElementById('loginErr').textContent='';
+  btn.disabled=true;document.getElementById('loginSpinner').style.display='block';document.getElementById('loginErr').textContent='';
   try{
     var hash=await sha256(pass);
-    var rows=await sbGet('users','username=eq.'+encodeURIComponent(user)+'&select=username,role,password_hash');
+    var rows=await sbGet('users','username=eq.'+encodeURIComponent(user)+'&select=username,role,password_hash,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active');
     if(!rows.length||rows[0].password_hash!==hash){
       document.getElementById('loginErr').textContent='Invalid username or password.';
       btn.disabled=false;document.getElementById('loginSpinner').style.display='none';return;
     }
-    currentUser={username:rows[0].username,role:rows[0].role};
+    if(rows[0].is_active===false){
+      document.getElementById('loginErr').textContent='Account is disabled. Contact Admin.';
+      btn.disabled=false;document.getElementById('loginSpinner').style.display='none';return;
+    }
+    currentUser=rows[0];
     localStorage.setItem('hm_session',JSON.stringify(currentUser));
+    await logAction('login','users',user,null,{username:user});
     await afterLogin();
   }catch(e){
     document.getElementById('loginErr').textContent='Connection error. Check internet.';
@@ -1701,16 +1827,38 @@ async function afterLogin(){
   document.getElementById('topBar').classList.add('visible');
   document.getElementById('tbUser').textContent=currentUser.username+' ('+currentUser.role+')';
   document.body.classList.add('logged-in');
+  // Show admin button for admin role
+  if(currentUser.role==='admin')document.getElementById('tbAdmin').style.display='';
+  // Apply permissions
+  applyPermissions();
   await loadAllFromCloud();
   buildRows();buildGiftGroups();R();renderMFTable();renderPLList();
+  // Start realtime polling every 30s
+  startRealtimeSync();
+}
+
+function applyPermissions(){
+  var canEdit=currentUser.role==='admin'||currentUser.can_edit_pricelist!==false;
+  var canGen=currentUser.role==='admin'||currentUser.can_edit_generator!==false;
+  var canMF=currentUser.role==='admin'||currentUser.can_edit_mf!==false;
+  // Pricelist: disable add/edit/delete if no permission
+  document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
+  // Generator: disable inputs
+  if(!canGen){
+    document.querySelectorAll('.ep input,.ep textarea,.ep select,.ep button:not(.btn-gen):not(.btn-pdf)').forEach(function(el){el.disabled=true;});
+  }
+  // MF: disable add
+  if(!canMF){var mfAdd=document.getElementById('mf_add_btn');if(mfAdd)mfAdd.style.display='none';}
 }
 
 function doLogout(){
   if(!confirm('Sign out?'))return;
+  if(realtimeInterval)clearInterval(realtimeInterval);
   localStorage.removeItem('hm_session');
   currentUser=null;
   document.getElementById('mainApp').style.display='none';
   document.getElementById('topBar').classList.remove('visible');
+  document.getElementById('tbAdmin').style.display='none';
   document.body.classList.remove('logged-in');
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginPass').value='';
@@ -1718,31 +1866,64 @@ function doLogout(){
   document.getElementById('loginSpinner').style.display='none';
 }
 
-/* ══ CLOUD LOAD ════════════════════════════════════ */
+/* ══ CHANGE LOG ══ */
+async function logAction(action,table,recordId,before,after){
+  if(!currentUser)return;
+  try{
+    await fetch(SB_URL+'/rest/v1/change_log',{
+      method:'POST',
+      headers:sbHeaders(),
+      body:JSON.stringify({username:currentUser.username,action:action,table_name:table,record_id:String(recordId||''),before_data:before||null,after_data:after||null})
+    });
+  }catch(e){}
+}
+
+/* ══ REALTIME SYNC ══ */
+var realtimeInterval=null;
+var lastSyncTime=null;
+function startRealtimeSync(){
+  if(realtimeInterval)clearInterval(realtimeInterval);
+  realtimeInterval=setInterval(async function(){
+    if(!currentUser)return;
+    try{
+      // Check if any table was updated since last sync
+      var now=new Date().toISOString();
+      var since=lastSyncTime||(new Date(Date.now()-31000).toISOString());
+      var pl=await sbGet('pricelist','select=updated_at&order=updated_at.desc&limit=1');
+      var gs=await sbGet('generator_settings','username=eq.'+encodeURIComponent(currentUser.username)+'&select=updated_at&order=updated_at.desc&limit=1');
+      var needsRefresh=false;
+      if(pl.length&&pl[0].updated_at>since)needsRefresh=true;
+      if(gs.length&&gs[0].updated_at>since)needsRefresh=true;
+      if(needsRefresh){
+        lastSyncTime=now;
+        await loadAllFromCloud();
+        buildRows();buildGiftGroups();R();renderMFTable();renderPLList();
+        var sync=document.getElementById('tbSync');
+        sync.textContent='↻ Updated';sync.classList.add('show');
+        setTimeout(function(){sync.classList.remove('show');},2000);
+      }
+      lastSyncTime=now;
+    }catch(e){}
+  },30000); // every 30 seconds
+}
+
+/* ══ CLOUD LOAD ══ */
 async function loadAllFromCloud(){
   try{
-    // Pricelist — load from cloud, fallback to localStorage
     var pl=await sbGet('pricelist','select=*&order=brand.asc,model.asc');
     if(pl.length){
       PL.list=pl.map(function(r){return{id:r.id,brand:r.brand,model:r.model,cash:r.cash,hp:r.hp,ins1:r.ins1,ins1p:r.ins1p,inssum:r.inssum,ins3:r.ins3,rtax:r.rtax,hand:r.hand,other:r.other,dpk:r.dpk,dph:r.dph,pa:r.pa,loanyear:r.loanyear};});
     } else {
-      // Fallback: load from localStorage and immediately push to cloud
       try{var plRaw=localStorage.getItem(PL_KEY);if(plRaw){var plLocal=JSON.parse(plRaw);if(plLocal.list&&plLocal.list.length){PL.list=plLocal.list;plSaveLib();}}}catch(ex){}
     }
-
-    // Max Finance
     var mf=await sbGet('max_finance','select=*&order=id.asc');
     if(mf.length){
       MF=mf.map(function(r){return{brand:r.brand,model:r.model,amt:r.amt};});
     } else {
       try{var mfRaw=localStorage.getItem(MF_KEY);if(mfRaw){var mfLocal=JSON.parse(mfRaw);if(Array.isArray(mfLocal)&&mfLocal.length){MF=mfLocal;saveMF();}}}catch(ex){}
     }
-
-    // Brand order
     var bo=await sbGet('brand_order','id=eq.1');
     if(bo.length&&bo[0].order_list)PL_BRAND.order=bo[0].order_list;
-
-    // Generator settings (per user)
     var gs=await sbGet('generator_settings','username=eq.'+encodeURIComponent(currentUser.username));
     if(gs.length&&gs[0].data){
       var d=gs[0].data;
@@ -1756,72 +1937,148 @@ async function loadAllFromCloud(){
       if(d.p1rows)S.p1rows=d.p1rows;
       if(d.p2rows)S.p2rows=d.p2rows;
       if(d.giftGroups)S.giftGroups=d.giftGroups;
-    } else {
-      // No cloud data yet — load from localStorage as fallback
-      loadSavedLocalFallback();
-    }
+    } else {loadSavedLocalFallback();}
     plSyncBrandOrder();
+    lastSyncTime=new Date().toISOString();
   }catch(e){console.warn('Cloud load error:',e);}
 }
 
-/* ══ CLOUD SAVE ════════════════════════════════════ */
+/* ══ CLOUD SAVE ══ */
 async function saveAll(){
   if(!currentUser)return;
   var btn=document.getElementById('saveBarStatus');
   btn.textContent='Saving…';btn.classList.add('show');
   try{
-    // 1. Pricelist — upsert all entries
+    function pn(v){var x=parseFloat(v);return isNaN(x)?null:x;}
+    function ps(v){return(v&&String(v).trim())||null;}
     if(PL.list.length){
-      function pn(v){var x=parseFloat(v);return isNaN(x)?null:x;}
-      function ps(v){return(v&&String(v).trim())||null;}
-      await sbUpsert('pricelist',PL.list.map(function(e){return{
-        id:e.id,brand:ps(e.brand),model:ps(e.model),
-        cash:pn(e.cash),hp:pn(e.hp),
-        ins1:pn(e.ins1),ins1p:pn(e.ins1p),inssum:pn(e.inssum),ins3:pn(e.ins3),
-        rtax:pn(e.rtax),hand:pn(e.hand),other:pn(e.other),
-        dpk:pn(e.dpk),dph:pn(e.dph),pa:pn(e.pa),
-        loanyear:ps(e.loanyear),updated_at:new Date().toISOString()
-      };}));
+      await sbUpsert('pricelist',PL.list.map(function(e){return{id:e.id,brand:ps(e.brand),model:ps(e.model),cash:pn(e.cash),hp:pn(e.hp),ins1:pn(e.ins1),ins1p:pn(e.ins1p),inssum:pn(e.inssum),ins3:pn(e.ins3),rtax:pn(e.rtax),hand:pn(e.hand),other:pn(e.other),dpk:pn(e.dpk),dph:pn(e.dph),pa:pn(e.pa),loanyear:ps(e.loanyear),updated_at:new Date().toISOString()};}));
     }
-
-    // 2. Max Finance — replace all (delete + insert)
-    await sbDelete('max_finance',{id:'0'}); // won't match, harmless
-    // actually truncate by deleting all rows
     await fetch(SB_URL+'/rest/v1/max_finance?id=gte.0',{method:'DELETE',headers:sbHeaders()});
-    if(MF.length)await sbUpsert('max_finance',MF.map(function(m,i){return{brand:m.brand,model:m.model,amt:m.amt};}));
-
-    // 3. Brand order
+    if(MF.length)await sbUpsert('max_finance',MF.map(function(m){return{brand:m.brand,model:m.model,amt:m.amt};}));
     await sbUpsert('brand_order',[{id:1,order_list:PL_BRAND.order}]);
-
-    // 4. Generator settings (per user)
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
     await sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]);
-
-    // 5. Also save locally as backup
+    await logAction('save_all','all','all',null,{timestamp:new Date().toISOString()});
     plSaveLib();plSaveBrandOrder();plSaveSel();saveMF();
     try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
-
+    lastSyncTime=new Date().toISOString();
     btn.textContent='✓ Synced  '+new Date().toLocaleTimeString();
-    document.getElementById('tbSync').textContent='✓ Synced';
-    document.getElementById('tbSync').classList.add('show');
+    document.getElementById('tbSync').textContent='✓ Synced';document.getElementById('tbSync').classList.add('show');
     setTimeout(function(){document.getElementById('tbSync').classList.remove('show');},3000);
-  }catch(e){
-    btn.textContent='⚠ Save failed — check connection';
-    console.error('Cloud save error:',e);
-  }
+  }catch(e){btn.textContent='⚠ Save failed';console.error(e);}
   setTimeout(function(){btn.classList.remove('show');},4000);
 }
-
-// Auto-save every 5 minutes
 setInterval(saveAll,5*60*1000);
+
+/* ══ ADMIN PANEL ══ */
+function openAdmin(){document.getElementById('adminPanel').style.display='block';loadUserTable();}
+function closeAdmin(){document.getElementById('adminPanel').style.display='none';}
+function switchAdminTab(tab,el){
+  document.querySelectorAll('.admin-tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');
+  document.getElementById('adminUsers').style.display=tab==='users'?'':'none';
+  document.getElementById('adminLog').style.display=tab==='log'?'':'none';
+  if(tab==='log')loadLog();
+}
+
+async function loadUserTable(){
+  var rows=await sbGet('users','select=username,role,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active&order=username.asc');
+  var html='<table class="user-table"><thead><tr><th>Username</th><th>Role</th><th>PL Edit</th><th>Gen Edit</th><th>MF Edit</th><th>Status</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(u){
+    html+='<tr>'
+      +'<td>'+esc(u.username)+'</td>'
+      +'<td><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:'+(u.role==='admin'?'#2d1a0d':'#0d1a2d')+';color:'+(u.role==='admin'?'#f0a040':'#58a6ff')+'">'+u.role+'</span></td>'
+      +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_pricelist!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_pricelist\',this.checked)"></td>'
+      +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_generator!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_generator\',this.checked)"></td>'
+      +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_mf!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_mf\',this.checked)"></td>'
+      +'<td><span class="user-status '+(u.is_active!==false?'active':'inactive')+'">'+(u.is_active!==false?'Active':'Disabled')+'</span></td>'
+      +'<td><button onclick="toggleUserActive(\''+u.username+'\','+(u.is_active!==false?'false':'true')+')" style="padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">'+(u.is_active!==false?'Disable':'Enable')+'</button>'
+      +(u.username!==currentUser.username?'<button onclick="resetPassword(\''+u.username+'\')" style="margin-left:4px;padding:2px 8px;border:1px solid #30363d;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#8b949e">Reset PW</button>':'')
+      +'</td></tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('userTableWrap').innerHTML=html;
+}
+
+async function addUser(){
+  var u=gv('newUsername').trim(),p=gv('newPassword'),r=gv('newRole'),e=document.getElementById('newCanEdit').checked;
+  if(!u||!p){alert('Username and password required.');return;}
+  var hash=await sha256(p);
+  var res=await fetch(SB_URL+'/rest/v1/users',{method:'POST',headers:sbHeaders(),body:JSON.stringify({username:u,password_hash:hash,role:r,can_edit_pricelist:e,can_edit_generator:e,can_edit_mf:e,is_active:true})});
+  if(res.ok||res.status===201){
+    ge('newUsername').value='';ge('newPassword').value='';
+    await logAction('add_user','users',u,null,{username:u,role:r});
+    await loadUserTable();alert('User "'+u+'" added.');
+  } else {var t=await res.text();alert('Error: '+t);}
+}
+
+async function updatePerm(username,field,value){
+  var body={};body[field]=value;
+  await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify(body)});
+  await logAction('update_permission','users',username,null,{field:field,value:value});
+}
+
+async function toggleUserActive(username,active){
+  await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({is_active:active})});
+  await logAction(active?'enable_user':'disable_user','users',username,null,{is_active:active});
+  await loadUserTable();
+}
+
+async function resetPassword(username){
+  var np=prompt('New password for "'+username+'":');
+  if(!np)return;
+  var hash=await sha256(np);
+  await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({password_hash:hash})});
+  await logAction('reset_password','users',username,null,{});
+  alert('Password reset for "'+username+'".');
+}
+
+async function loadLog(){
+  var filterUser=gv('logFilterUser'),filterAction=gv('logFilterAction'),filterDate=gv('logFilterDate');
+  var params='select=*&order=created_at.desc&limit=200';
+  if(filterUser)params+='&username=eq.'+encodeURIComponent(filterUser);
+  if(filterAction)params+='&action=eq.'+encodeURIComponent(filterAction);
+  if(filterDate)params+='&created_at=gte.'+filterDate+'T00:00:00Z&created_at=lte.'+filterDate+'T23:59:59Z';
+  var rows=await sbGet('change_log',params);
+  // Also populate user filter
+  var users=await sbGet('users','select=username&order=username.asc');
+  var sel=document.getElementById('logFilterUser');
+  var cur=sel.value;
+  sel.innerHTML='<option value="">All Users</option>';
+  users.forEach(function(u){sel.innerHTML+='<option value="'+esc(u.username)+'"'+(u.username===cur?' selected':'')+'>'+esc(u.username)+'</option>';});
+  if(!rows.length){document.getElementById('logTableWrap').innerHTML='<p style="font-size:11px;color:#8b949e;padding:10px 0">No records found.</p>';return;}
+  var html='<table class="log-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var t=new Date(r.created_at);
+    var ts=t.getDate().toString().padStart(2,'0')+'/'+(t.getMonth()+1).toString().padStart(2,'0')+' '+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
+    var detail=r.after_data?JSON.stringify(r.after_data).slice(0,60):'';
+    html+='<tr>'
+      +'<td class="log-time">'+ts+'</td>'
+      +'<td class="log-user">'+esc(r.username)+'</td>'
+      +'<td class="log-action">'+esc(r.action)+'</td>'
+      +'<td class="log-detail" title="'+esc(JSON.stringify(r.after_data))+'">'+esc(detail)+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('logTableWrap').innerHTML=html;
+}
 
 /* ── INIT ── */
 (async function(){
-  // Auto-login as Admin (login system temporarily bypassed)
-  currentUser={username:'Admin',role:'admin'};
-  localStorage.setItem('hm_session',JSON.stringify(currentUser));
-  await afterLogin();
+  try{
+    var sess=localStorage.getItem('hm_session');
+    if(sess){
+      var s=JSON.parse(sess);
+      var rows=await sbGet('users','username=eq.'+encodeURIComponent(s.username)+'&select=username,role,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active');
+      if(rows.length&&rows[0].is_active!==false){
+        currentUser=rows[0];
+        await afterLogin();return;
+      }
+    }
+  }catch(e){}
+  document.getElementById('loginScreen').style.display='flex';
 })();
+
 
 </script>
 </body>
