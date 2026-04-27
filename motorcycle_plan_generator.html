@@ -2012,10 +2012,20 @@ function applyPermissions(){
   // Pricelist: hide add/edit buttons if no permission
   document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
 
-  // Generator: disable inputs and add buttons (but NOT calc panel or MF)
+  // Generator: if no edit permission, make inputs readonly (not disabled - disabled breaks genCode/openPDF)
+  // Generate HTML and Quotation PDF are always accessible to everyone
   if(!canGen){
-    document.querySelectorAll('.ep input,.ep textarea,.ep select').forEach(function(el){el.disabled=true;});
-    document.querySelectorAll('.ep .btn:not(.btn-gen):not(.btn-pdf)').forEach(function(el){el.disabled=true;});
+    document.querySelectorAll('.ep input,.ep textarea,.ep select').forEach(function(el){
+      el.readOnly=true;
+      el.style.opacity='0.6';
+      el.style.cursor='not-allowed';
+    });
+    document.querySelectorAll('.ep .btn:not(.btn-gen):not(.btn-pdf)').forEach(function(el){
+      el.disabled=true;
+      el.style.opacity='0.4';
+    });
+    // Hide + Add Row buttons and gift add buttons
+    document.querySelectorAll('.ep .seg-opt,.new-group-row,.gift-groups-toolbar').forEach(function(el){el.style.display='none';});
   }
 
   // MF: show/hide add button and inputs based on canMF
