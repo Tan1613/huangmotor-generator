@@ -702,7 +702,7 @@ body.logged-in{padding-top:36px}
     style="width:100%;padding:8px;background:#1f6feb;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px">
     ⬇ Load to Calculator
   </button>
-  <p style="font-size:9px;color:#21262d;text-align:center;margin-top:3px">Click entry to view/load · Double-click to edit</p>
+  <p id="plLoadHint" style="font-size:9px;color:#21262d;text-align:center;margin-top:3px">Click entry to view · Double-click to edit</p>
 
   <!-- PDF Pricelist -->
   <button class="pl-pdf-btn" id="plPdfBtn" onclick="openPLPdf()" disabled>📄 Print Pricelist PDF</button>
@@ -1134,7 +1134,10 @@ function renderPLList(){
       renderPLList();};
     content.querySelector('.pl-item-top').appendChild(del);
     div.onclick=function(ev){if(ev.target===ck)return;PL.sel=e.id;renderPLList();showPLDetail(e.id);};
-    div.ondblclick=function(){openPLForm(e.id);};
+    // Only allow edit on double-click for non-viewer
+    if(!currentUser||currentUser.role!=='viewer'){
+      div.ondblclick=function(){openPLForm(e.id);};
+    }
     div.appendChild(ck);div.appendChild(content);
     wrap.appendChild(div);
   });
@@ -2110,10 +2113,14 @@ function applyPermissions(){
     ge('mfSection').style.display='none';
     ge('epPanel').style.display='none';
     ge('ppPanel').style.display='none';
-    // Pricelist panel: hide New, Import, Export, Brand Order for viewer (but keep Load to Calc and PDF view)
+    // Pricelist panel: hide New, Import, Export, Brand Order, PDF for viewer
     document.querySelectorAll('.pl-new-btn,.plp-io,.pl-brand-panel').forEach(function(el){if(el)el.style.display='none';});
-    ge('plLoadCalcBtn').style.display=''; // viewer CAN load to calc
-    ge('plPdfBtn').style.display='none';  // but cannot print pricelist PDF
+    var pdfBtn=document.getElementById('plPdfBtn');if(pdfBtn)pdfBtn.style.display='none';
+    var pdfHint=document.getElementById('plPdfHint');if(pdfHint)pdfHint.style.display='none';
+    var saveBar=document.querySelector('.save-bar');if(saveBar)saveBar.style.display='none';
+    // Explicitly show Load to Calculator for viewer
+    var lcBtn=document.getElementById('plLoadCalcBtn');if(lcBtn)lcBtn.style.display='block';
+    var hint=document.getElementById('plLoadHint');if(hint)hint.textContent='Click entry to view · Load to fill calculator';
     // Save bar
     var sb=document.querySelector('.save-bar');if(sb)sb.style.display='none';
     return;
