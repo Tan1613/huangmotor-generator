@@ -1683,14 +1683,27 @@ async function saveGifts(){
   if(!currentUser||!cloudReady)return;
   try{
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
-    var r=await fetch(SB_URL+'/rest/v1/generator_settings',{
-      method:'POST',
-      headers:Object.assign({},sbHeaders(),{'Prefer':'resolution=merge-duplicates'}),
-      body:JSON.stringify([{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}])
+    var now=new Date().toISOString();
+    // Try PATCH first (update existing row)
+    var r=await fetch(SB_URL+'/rest/v1/generator_settings?username=eq.'+encodeURIComponent(currentUser.username),{
+      method:'PATCH',
+      headers:Object.assign({},sbHeaders(),{'Prefer':'return=minimal'}),
+      body:JSON.stringify({data:snap,updated_at:now})
     });
-    if(!r.ok)throw new Error('HTTP '+r.status);
+    // If no row existed (204 with no match), POST to insert
+    if(r.status===204){
+      // Check if actually updated by trying to read count
+      var check=await sbGet('generator_settings','username=eq.'+encodeURIComponent(currentUser.username)+'&select=username');
+      if(!check.length){
+        await fetch(SB_URL+'/rest/v1/generator_settings',{
+          method:'POST',
+          headers:Object.assign({},sbHeaders(),{'Prefer':'return=minimal'}),
+          body:JSON.stringify({username:currentUser.username,data:snap,updated_at:now})
+        });
+      }
+    }
+    if(!r.ok&&r.status!==204)throw new Error('HTTP '+r.status);
     try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
-    // Show feedback
     var b=ge('savedBadge');if(b){b.textContent='Gifts ☁';b.classList.add('show');setTimeout(function(){b.classList.remove('show');},1400);}
   }catch(e){
     console.warn('saveGifts error:',e);
@@ -2213,7 +2226,11 @@ async function saveAll(){
       p1rows:S.p1rows,p2rows:S.p2rows,
       giftGroups:S.giftGroups  // S.giftGroups is always authoritative after cloudReady=true
     };
-    await sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]);
+    await fetch(SB_URL+'/rest/v1/generator_settings?username=eq.'+encodeURIComponent(currentUser.username),{
+      method:'PATCH',
+      headers:Object.assign({},sbHeaders(),{'Prefer':'return=minimal'}),
+      body:JSON.stringify({data:snap,updated_at:new Date().toISOString()})
+    });
     await logAction('save_all','all','all',null,{ts:new Date().toISOString(),gifts:S.giftGroups.length});
     // Backup to localStorage
     plSaveLib();plSaveBrandOrder();plSaveSel();saveMF();
@@ -2370,12 +2387,12 @@ window.addEventListener('beforeunload', function(){
     try{
       var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
       var xhr=new XMLHttpRequest();
-      xhr.open('POST',SB_URL+'/rest/v1/generator_settings',false); // sync
+      xhr.open('PATCH',SB_URL+'/rest/v1/generator_settings?username=eq.'+encodeURIComponent(currentUser.username),false);
       xhr.setRequestHeader('Content-Type','application/json');
       xhr.setRequestHeader('apikey',SB_KEY);
       xhr.setRequestHeader('Authorization','Bearer '+SB_KEY);
-      xhr.setRequestHeader('Prefer','resolution=merge-duplicates');
-      xhr.send(JSON.stringify([{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]));
+      xhr.setRequestHeader('Prefer','return=minimal');
+      xhr.send(JSON.stringify({data:snap,updated_at:new Date().toISOString()}));
     }catch(e){}
   }
   localStorage.removeItem('hm_session');
