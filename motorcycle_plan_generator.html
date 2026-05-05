@@ -1075,7 +1075,13 @@ function plUpdateChkUI(){
   var n=PL.checked.size;
   document.getElementById('plChkCount').textContent=n?n+' selected':'';
   var btn=document.getElementById('plPdfBtn');
-  btn.disabled=n===0;
+  var isViewer=currentUser&&currentUser.role==='viewer';
+  if(isViewer){
+    btn.style.display='none';
+  } else {
+    btn.style.display='';
+    btn.disabled=n===0;
+  }
   document.getElementById('plPdfHint').textContent=n?n+' entr'+(n===1?'y':'ies')+' selected for PDF':'Tick entries above to enable';
 }
 
@@ -2115,6 +2121,10 @@ function applyPermissions(){
     ge('ppPanel').style.display='none';
     // Pricelist panel: hide New, Import, Export, Brand Order, PDF for viewer
     document.querySelectorAll('.pl-new-btn,.plp-io,.pl-brand-panel').forEach(function(el){if(el)el.style.display='none';});
+    // Lock Motor Price and Road Tax - viewer cannot edit these
+    var cMotorEl=ge('cMotor');var cRtaxEl=ge('cRoadtax');
+    if(cMotorEl){cMotorEl.readOnly=true;cMotorEl.style.opacity='0.6';cMotorEl.style.cursor='not-allowed';}
+    if(cRtaxEl){cRtaxEl.readOnly=true;cRtaxEl.style.opacity='0.6';cRtaxEl.style.cursor='not-allowed';}
     var pdfBtn=document.getElementById('plPdfBtn');if(pdfBtn)pdfBtn.style.display='none';
     var pdfHint=document.getElementById('plPdfHint');if(pdfHint)pdfHint.style.display='none';
     var saveBar=document.querySelector('.save-bar');if(saveBar)saveBar.style.display='none';
@@ -2130,6 +2140,17 @@ function applyPermissions(){
   ['calcHandlingWrap','calcOtherWrap','calcTSPWrap','calcScenarioWrap','mfSection','epPanel','ppPanel'].forEach(function(id){var el=ge(id);if(el)el.style.display='';});
   ge('calcOTRWrap').style.display='none';
   ge('impAllBtn').style.display='';
+  // Restore pricelist IO and PDF button for non-viewer
+  document.querySelectorAll('.plp-io,.pl-brand-panel').forEach(function(el){if(el)el.style.display='';});
+  var pdfBtn=document.getElementById('plPdfBtn');if(pdfBtn)pdfBtn.style.display='';
+  var pdfHint=document.getElementById('plPdfHint');if(pdfHint)pdfHint.style.display='';
+  var saveBar=document.querySelector('.save-bar');if(saveBar)saveBar.style.display='';
+  var lcBtn2=document.getElementById('plLoadCalcBtn');if(lcBtn2)lcBtn2.style.display='';
+  var hint2=document.getElementById('plLoadHint');if(hint2)hint2.textContent='Click entry to view · Double-click to edit';
+  // Motor Price and Road Tax: readonly for viewer (already handled in viewer block above)
+  var cMotorEl=ge('cMotor');var cRtaxEl=ge('cRoadtax');
+  if(cMotorEl){cMotorEl.readOnly=false;cMotorEl.style.opacity='';}
+  if(cRtaxEl){cRtaxEl.readOnly=false;cRtaxEl.style.opacity='';}
 
   // Pricelist: hide add/edit/clone buttons if no permission
   document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
