@@ -1199,7 +1199,8 @@ function clonePLEntry(id){
   openPLForm(clone.id);
   logAction('clone_pricelist','pricelist',clone.brand+' '+clone.model,null,{clonedFrom:src.model,newId:clone.id});
 }
-  var a=document.createElement('a');
+
+function exportPL(){
   a.href=URL.createObjectURL(new Blob([JSON.stringify({list:PL.list},null,2)],{type:'application/json'}));
   a.download='pricelist_'+(new Date().toISOString().slice(0,10))+'.json';
   a.click();URL.revokeObjectURL(a.href);
