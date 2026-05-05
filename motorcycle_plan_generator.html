@@ -1457,24 +1457,21 @@ function applyPdfFontSize(){
 function loadPLToCalc(){
   var e=PL.list.find(function(x){return x.id===PL.sel;});
   if(!e){alert('Please select an entry first.');return;}
-  function sv(id,v){var el=document.getElementById(id);if(el){el.value=v||'';}}
-  // Cash Price → Motorcycle Price
-  sv('cMotor', e.cash);
-  // Insurance: default to Insurance 1st (ins1); fallback chain: ins1 → ins1p → inssum
-  var ins = e.ins1 || e.ins1p || e.inssum || '';
-  sv('cIns', ins);
-  sv('cRoadtax', e.rtax);
-  sv('cHandling', e.hand);
-  sv('cOther', e.other);
-  // DP HTML → clear existing DPs and add as DP option
-  C.dps = [];
-  if(e.dph && parseFloat(e.dph) > 0) C.dps.push(parseFloat(e.dph));
+  var isViewer=currentUser&&currentUser.role==='viewer';
+  function sv(id,v){var el=document.getElementById(id);if(el)el.value=v||'';}
+  // Always fill ALL fields (viewer sees hidden inputs, calc uses full TSP)
+  sv('cMotor',e.cash);
+  sv('cIns',e.ins1||e.ins1p||e.inssum);
+  sv('cRoadtax',e.rtax);
+  sv('cHandling',e.hand);
+  sv('cOther',e.other);
+  C.dps=[];
+  if(e.dph&&parseFloat(e.dph)>0)C.dps.push(parseFloat(e.dph));
   renderDPTags();
   calcTSP();
-  // Auto-fill model name if empty
-  if(!document.getElementById('modelName').value){
-    document.getElementById('modelName').value = (e.brand+' '+e.model).trim();
-    save(); R();
+  if(!isViewer&&!document.getElementById('modelName').value){
+    document.getElementById('modelName').value=(e.brand+' '+e.model).trim();
+    save();R();
   }
 }
 
@@ -1559,9 +1556,9 @@ function renderDPTags(){
 }
 function calcInst(tsp,dp,rateYr,months){var p=tsp-dp;if(p<=0)return 0;return p*(1+rateYr/100*(months/12))/months;}
 function calcAll(){
-  var isViewer=currentUser&&currentUser.role==='viewer';
-  var tsp=isViewer?(gn('cMotor')+gn('cIns')+gn('cRoadtax')):C.tsp;
+  var tsp=C.tsp; // always use full TSP (all fields loaded, even if hidden for viewer)
   var months=S.months;var ok=tsp>0&&C.dps.length>0;
+  var isViewer=currentUser&&currentUser.role==='viewer';
   ge('impAllBtn').disabled=isViewer||!ok;var t=CLT[CL];
   if(!ok){ge('calcPreview').innerHTML='<p style="font-size:11px;color:#444">'+t.resultHint+'</p>';return;}
   var html='<table class="calc-table"><thead><tr><th>DP (RM)</th>';
@@ -2113,9 +2110,10 @@ function applyPermissions(){
     ge('mfSection').style.display='none';
     ge('epPanel').style.display='none';
     ge('ppPanel').style.display='none';
-    // Pricelist panel: hide New, Import, Export, Brand Order, Load to Calc
-    document.querySelectorAll('.pl-new-btn,.plp-io,.pl-brand-panel,.pl-load-btn,.pl-pdf-btn').forEach(function(el){if(el)el.style.display='none';});
-    ge('plLoadCalcBtn').style.display='none';
+    // Pricelist panel: hide New, Import, Export, Brand Order for viewer (but keep Load to Calc and PDF view)
+    document.querySelectorAll('.pl-new-btn,.plp-io,.pl-brand-panel').forEach(function(el){if(el)el.style.display='none';});
+    ge('plLoadCalcBtn').style.display=''; // viewer CAN load to calc
+    ge('plPdfBtn').style.display='none';  // but cannot print pricelist PDF
     // Save bar
     var sb=document.querySelector('.save-bar');if(sb)sb.style.display='none';
     return;
