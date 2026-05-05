@@ -595,8 +595,8 @@ body.logged-in{padding-top:36px}
     <div class="pl-detail-hdr">
       <span id="plDetailTitle">—</span>
       <div style="display:flex;gap:4px">
-        <button class="pl-edit-btn" onclick="clonePLEntry(PL.sel)" title="Clone this entry">⧉ Clone</button>
-        <button class="pl-edit-btn" onclick="openPLForm(PL.sel)">✎ Edit</button>
+        <button class="pl-edit-btn" id="plCloneBtn" onclick="clonePLEntry(PL.sel)" title="Clone this entry">⧉ Clone</button>
+        <button class="pl-edit-btn" id="plEditBtn" onclick="openPLForm(PL.sel)">✎ Edit</button>
         <button class="pl-close-btn" onclick="closePLDetail()">✕</button>
       </div>
     </div>
@@ -1148,6 +1148,11 @@ function showPLDetail(id){
     }
   });
   document.getElementById('plDetailGrid').innerHTML=html||'<div style="grid-column:1/-1;color:#30363d;font-size:11px">No data filled in.</div>';
+  // Apply permission to edit/clone buttons dynamically
+  var canEditPLNow=!currentUser||(currentUser.role==='admin'||currentUser.can_edit_pricelist!==false);
+  var cb=document.getElementById('plCloneBtn');var eb=document.getElementById('plEditBtn');
+  if(cb)cb.style.display=canEditPLNow?'':'none';
+  if(eb)eb.style.display=canEditPLNow?'':'none';
   document.getElementById('plLoadCalcBtn').disabled=false;
 }
 function closePLDetail(){PL.sel=null;document.getElementById('plDetail').style.display='none';document.getElementById('plLoadCalcBtn').disabled=true;renderPLList();}
@@ -2066,8 +2071,12 @@ function applyPermissions(){
   var canGen=currentUser.role==='admin'||currentUser.can_edit_generator!==false;
   var canMF=currentUser.role==='admin'||currentUser.can_edit_mf!==false;
 
-  // Pricelist: hide add/edit buttons if no permission
+  // Pricelist: hide add/edit/clone buttons if no permission
   document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
+  var plCloneBtn=document.getElementById('plCloneBtn');
+  var plEditBtn=document.getElementById('plEditBtn');
+  if(plCloneBtn)plCloneBtn.style.display=canEdit?'':'none';
+  if(plEditBtn)plEditBtn.style.display=canEdit?'':'none';
 
   // Generator: if no edit permission, make inputs readonly (not disabled - disabled breaks genCode/openPDF)
   // Generate HTML and Quotation PDF are always accessible to everyone
