@@ -595,6 +595,7 @@ body.logged-in{padding-top:36px}
     <div class="pl-detail-hdr">
       <span id="plDetailTitle">—</span>
       <div style="display:flex;gap:4px">
+        <button class="pl-edit-btn" onclick="clonePLEntry(PL.sel)" title="Clone this entry">⧉ Clone</button>
         <button class="pl-edit-btn" onclick="openPLForm(PL.sel)">✎ Edit</button>
         <button class="pl-close-btn" onclick="closePLDetail()">✕</button>
       </div>
@@ -806,6 +807,12 @@ body.logged-in{padding-top:36px}
   </div>
   <div class="dp-tags" id="dpTags"></div>
   <div id="dpNote" style="font-size:10px;color:#444;margin-bottom:4px">No DP added yet</div>
+
+  <div class="csec" id="cs_tenure_calc">Tenure Options</div>
+  <div class="seg" id="calcMonthSeg" style="margin-bottom:8px">
+    <div class="seg-opt on" onclick="setCalcMonths([60,48,36,24],this)">60·48·36·24</div>
+    <div class="seg-opt" onclick="setCalcMonths([84,72,60,48,36],this)">84·72·60·48·36</div>
+  </div>
 
   <div class="csec" id="cs_result">Calculation Result</div>
   <div id="calcPreview"><p style="font-size:11px;color:#444">Fill in costs, rate and DP to calculate</p></div>
@@ -1177,7 +1184,21 @@ function savePLEntry(){
   closePLForm();PL.sel=entry.id;renderPLList();showPLDetail(entry.id);
 }
 
-function exportPL(){
+function clonePLEntry(id){
+  var src=PL.list.find(function(x){return x.id===id;});
+  if(!src)return;
+  var clone=Object.assign({},src,{
+    id:'pl_'+Date.now(),
+    model:(src.model||'')+'（Copy）'
+  });
+  PL.list.push(clone);
+  plSaveLib();plSyncBrandOrder();plSaveBrandOrder();
+  PL.sel=clone.id;
+  renderPLList();
+  // Open the cloned entry in edit mode immediately so user can rename
+  openPLForm(clone.id);
+  logAction('clone_pricelist','pricelist',clone.brand+' '+clone.model,null,{clonedFrom:src.model,newId:clone.id});
+}
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify({list:PL.list},null,2)],{type:'application/json'}));
   a.download='pricelist_'+(new Date().toISOString().slice(0,10))+'.json';
@@ -1603,9 +1624,21 @@ function getSharedFee(){return gv('pfee')||'RM450';}
 /* ══ NAV ══ */
 function sw(t){['info','plans','gifts'].forEach(function(x){ge('p'+x).style.display=x===t?'':'none';});ge('mainTabs').querySelectorAll('.tab').forEach(function(el,i){el.classList.toggle('on',['info','plans','gifts'][i]===t);});}
 function swL(l,el){S.lang=l;el.closest('.out-tabs').querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');if(S.mode==='preview')R();}
+function setCalcMonths(arr,el){
+  // Sync with Generator tenure selector
+  S.months=arr;
+  ge('calcMonthSeg').querySelectorAll('.seg-opt').forEach(function(o){o.classList.remove('on');});
+  el.classList.add('on');
+  // Also sync the Generator monthSeg
+  ge('monthSeg').querySelectorAll('.seg-opt').forEach(function(o,i){o.classList.toggle('on',i===(arr.length===5?1:0));});
+  calcAll();
+  buildRows();
+}
 function setMonths(arr,el){
   var prev=S.months.slice();
   S.months=arr;ge('monthSeg').querySelectorAll('.seg-opt').forEach(function(o){o.classList.remove('on');});el.classList.add('on');
+  // Sync calc tenure selector
+  ge('calcMonthSeg').querySelectorAll('.seg-opt').forEach(function(o,i){o.classList.toggle('on',i===(arr.length===5?1:0));});
   ge('pfee').value='';buildRows();
   logAction('change_tenure','generator','months',{months:prev},{months:arr});
   if(C.tsp>0&&C.dps.length>0)importBoth();else{save();R();}
@@ -1649,9 +1682,19 @@ async function saveGifts(){
   if(!currentUser||!cloudReady)return;
   try{
     var snap={modelName:gv('modelName'),desc_en:gv('desc_en'),desc_ms:gv('desc_ms'),desc_zh:gv('desc_zh'),otrTxt:gv('otrTxt'),pfee:gv('pfee'),months:S.months,p1rows:S.p1rows,p2rows:S.p2rows,giftGroups:S.giftGroups};
-    await sbUpsert('generator_settings',[{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}]);
+    var r=await fetch(SB_URL+'/rest/v1/generator_settings',{
+      method:'POST',
+      headers:Object.assign({},sbHeaders(),{'Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify([{username:currentUser.username,data:snap,updated_at:new Date().toISOString()}])
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
     try{localStorage.setItem(STORE_KEY,JSON.stringify(snap));}catch(e){}
-  }catch(e){console.warn('saveGifts error:',e);}
+    // Show feedback
+    var b=ge('savedBadge');if(b){b.textContent='Gifts ☁';b.classList.add('show');setTimeout(function(){b.classList.remove('show');},1400);}
+  }catch(e){
+    console.warn('saveGifts error:',e);
+    var b=ge('savedBadge');if(b){b.textContent='⚠ Retry';b.classList.add('show');setTimeout(function(){b.classList.remove('show');},2000);}
+  }
 }
 
 function addGiftGroup(){var name=gv('newGrpName').trim()||('Group '+(S.giftGroups.length+1));S.giftGroups.push({name:name,color:COLORS[S.giftGroups.length%COLORS.length],type:newGrpType,collapsed:false,gifts:[]});ge('newGrpName').value='';saveGifts();buildGiftGroups();logAction('add_gift_group','generator',name,null,{name:name,type:newGrpType});}
