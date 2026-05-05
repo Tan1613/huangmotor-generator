@@ -507,6 +507,7 @@ body.logged-in{padding-top:36px}
           <input type="password" id="newPassword" placeholder="Password">
           <select id="newRole">
             <option value="staff">Staff</option>
+            <option value="viewer">Viewer</option>
             <option value="admin">Admin</option>
           </select>
           <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#8b949e">
@@ -744,37 +745,52 @@ body.logged-in{padding-top:36px}
   <input type="number" id="cIns" placeholder="0" oninput="calcTSP()">
   <span class="clabel" id="cl_rtax">Road Tax (RM)</span>
   <input type="number" id="cRoadtax" placeholder="0" oninput="calcTSP()">
-  <span class="clabel" id="cl_hand">Handling Fee (RM)</span>
-  <input type="number" id="cHandling" placeholder="0" oninput="calcTSP()">
-  <span class="clabel" id="cl_other">Other Charges (RM)</span>
-  <input type="number" id="cOther" placeholder="0" oninput="calcTSP()">
-  <div class="tsp-box">
-    <span class="tsp-lbl" id="cl_tsp">Total Selling Price (TSP)</span>
-    <span class="tsp-val" id="tspVal">RM 0.00</span>
+  <div id="calcHandlingWrap">
+    <span class="clabel" id="cl_hand">Handling Fee (RM)</span>
+    <input type="number" id="cHandling" placeholder="0" oninput="calcTSP()">
+  </div>
+  <div id="calcOtherWrap">
+    <span class="clabel" id="cl_other">Other Charges (RM)</span>
+    <input type="number" id="cOther" placeholder="0" oninput="calcTSP()">
+  </div>
+  <!-- Cash OTR (viewer mode only: Motor+Ins+RTax) -->
+  <div id="calcOTRWrap" style="display:none">
+    <div class="tsp-box" style="background:#1a2a1a;border-color:#2a4a2a">
+      <span class="tsp-lbl" style="color:#7ab87a">Cash OTR Price</span>
+      <span class="tsp-val" id="otrVal" style="color:#a0d8a0">RM 0.00</span>
+    </div>
+  </div>
+  <div id="calcTSPWrap">
+    <div class="tsp-box">
+      <span class="tsp-lbl" id="cl_tsp">Total Selling Price (TSP)</span>
+      <span class="tsp-val" id="tspVal">RM 0.00</span>
+    </div>
   </div>
 
-  <div class="csec" id="cs_scenario">Auto Scenarios</div>
-  <div class="sc-wrap">
-    <table class="sc-grid">
-      <thead><tr>
-        <td style="border:1px solid #2a2a2a;background:#1a1a1a"></td>
-        <th>10% DP</th><th>20% DP</th><th>30% DP</th>
-      </tr></thead>
-      <tbody>
-        <tr>
-          <td class="row-lbl">TSP</td>
-          <td class="val" id="sc_10_tsp">—</td>
-          <td class="val" id="sc_20_tsp">—</td>
-          <td class="val" id="sc_30_tsp">—</td>
-        </tr>
-        <tr>
-          <td class="row-lbl">DP</td>
-          <td class="val" id="sc_10_dp">—</td>
-          <td class="val" id="sc_20_dp">—</td>
-          <td class="val" id="sc_30_dp">—</td>
-        </tr>
-      </tbody>
-    </table>
+  <div id="calcScenarioWrap">
+    <div class="csec" id="cs_scenario">Auto Scenarios</div>
+    <div class="sc-wrap">
+      <table class="sc-grid">
+        <thead><tr>
+          <td style="border:1px solid #2a2a2a;background:#1a1a1a"></td>
+          <th>10% DP</th><th>20% DP</th><th>30% DP</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td class="row-lbl">TSP</td>
+            <td class="val" id="sc_10_tsp">—</td>
+            <td class="val" id="sc_20_tsp">—</td>
+            <td class="val" id="sc_30_tsp">—</td>
+          </tr>
+          <tr>
+            <td class="row-lbl">DP</td>
+            <td class="val" id="sc_10_dp">—</td>
+            <td class="val" id="sc_20_dp">—</td>
+            <td class="val" id="sc_30_dp">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="csec" id="cs_rate">Annual Interest Rate</div>
@@ -819,7 +835,7 @@ body.logged-in{padding-top:36px}
   <button class="imp-btn-all" id="impAllBtn" onclick="importBoth()" disabled>⬇ Import to Plan 1 &amp; Plan 2</button>
 
   <!-- Max Finance -->
-  <div class="mf-section">
+  <div class="mf-section" id="mfSection">
     <div class="csec">
       <span id="cs_mf_text">Max Finance Amount</span>
     </div>
@@ -840,7 +856,7 @@ body.logged-in{padding-top:36px}
 <!-- ══════════════════════════════════════════════════
      EDITOR PANEL
 ══════════════════════════════════════════════════ -->
-<div class="ep">
+<div class="ep" id="epPanel">
   <div class="app-title">
     <span>Generator</span>
     <span class="saved-badge" id="savedBadge">Saved</span>
@@ -922,7 +938,7 @@ body.logged-in{padding-top:36px}
 <!-- ══════════════════════════════════════════════════
      PREVIEW / OUTPUT PANEL
 ══════════════════════════════════════════════════ -->
-<div class="pp">
+<div class="pp" id="ppPanel">
   <div class="out-header">
     <span style="font-size:11px;font-weight:600;color:#999" id="panelLabel">Preview</span>
     <div style="display:flex;gap:6px;align-items:center">
@@ -1128,7 +1144,12 @@ function showPLDetail(id){
   var e=PL.list.find(function(x){return x.id===id;});if(!e)return;
   document.getElementById('plDetail').style.display='';
   document.getElementById('plDetailTitle').textContent=e.brand+' '+e.model;
-  var fields=[
+  var isViewer=currentUser&&currentUser.role==='viewer';
+  var fields=isViewer?[
+    ['Cash Price','cash'],['Hire Purchase Price','hp'],
+    ['Insurance 1st','ins1'],['Insurance SUM','inssum'],
+    ['Insurance 3rd','ins3'],['Road Tax','rtax']
+  ]:[
     ['Cash Price','cash'],['Hire Purchase Price','hp'],
     ['Insurance 1st','ins1'],['Insurance 1st+','ins1p'],
     ['Insurance SUM','inssum'],['Insurance 3rd','ins3'],
@@ -1512,8 +1533,12 @@ function ceil(n){return Math.ceil(n);}
 /* ══ CALCULATOR ══ */
 var C={rate:10,dps:[],tsp:0};
 function calcTSP(){
-  var tsp=gn('cMotor')+gn('cIns')+gn('cRoadtax')+gn('cHandling')+gn('cOther');
-  C.tsp=tsp;ge('tspVal').textContent=tsp>0?fmtRM(tsp):'RM 0.00';
+  var motor=gn('cMotor'),ins=gn('cIns'),rtax=gn('cRoadtax'),hand=gn('cHandling'),other=gn('cOther');
+  var tsp=motor+ins+rtax+hand+other;
+  var otr=motor+ins+rtax; // Cash OTR = Motor + Insurance + Road Tax only
+  C.tsp=tsp;
+  ge('tspVal').textContent=tsp>0?fmtRM(tsp):'RM 0.00';
+  ge('otrVal').textContent=otr>0?fmtRM(otr):'RM 0.00';
   if(tsp>0){
     var t10=tsp/0.9,d10=t10*0.1,t20=tsp/0.8,d20=t20*0.2,t30=tsp/0.7,d30=t30*0.3;
     ge('sc_10_tsp').textContent=fmtRM(t10);ge('sc_10_dp').textContent=fmtRM(d10);
@@ -1534,8 +1559,10 @@ function renderDPTags(){
 }
 function calcInst(tsp,dp,rateYr,months){var p=tsp-dp;if(p<=0)return 0;return p*(1+rateYr/100*(months/12))/months;}
 function calcAll(){
-  var tsp=C.tsp;var months=S.months;var ok=tsp>0&&C.dps.length>0;
-  ge('impAllBtn').disabled=!ok;var t=CLT[CL];
+  var isViewer=currentUser&&currentUser.role==='viewer';
+  var tsp=isViewer?(gn('cMotor')+gn('cIns')+gn('cRoadtax')):C.tsp;
+  var months=S.months;var ok=tsp>0&&C.dps.length>0;
+  ge('impAllBtn').disabled=isViewer||!ok;var t=CLT[CL];
   if(!ok){ge('calcPreview').innerHTML='<p style="font-size:11px;color:#444">'+t.resultHint+'</p>';return;}
   var html='<table class="calc-table"><thead><tr><th>DP (RM)</th>';
   months.forEach(function(m){html+='<th>'+m+'m</th>';});html+='</tr></thead><tbody>';
@@ -2067,9 +2094,37 @@ async function saveProfile(){
 }
 
 function applyPermissions(){
-  var canEdit=currentUser.role==='admin'||currentUser.can_edit_pricelist!==false;
-  var canGen=currentUser.role==='admin'||currentUser.can_edit_generator!==false;
-  var canMF=currentUser.role==='admin'||currentUser.can_edit_mf!==false;
+  var isViewer=currentUser.role==='viewer';
+  var canEdit=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_pricelist!==false);
+  var canGen=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
+  var canMF=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_mf!==false);
+
+  // ── VIEWER MODE ──
+  if(isViewer){
+    // Hide Pricelist columns except: Cash, HP, Ins1, InsSum, Ins3, RTax
+    // (handled in renderPLList/showPLDetail via isViewer check)
+    // Hide calc fields
+    ge('calcHandlingWrap').style.display='none';
+    ge('calcOtherWrap').style.display='none';
+    ge('calcTSPWrap').style.display='none';
+    ge('calcScenarioWrap').style.display='none';
+    ge('calcOTRWrap').style.display='';
+    ge('impAllBtn').style.display='none';
+    ge('mfSection').style.display='none';
+    ge('epPanel').style.display='none';
+    ge('ppPanel').style.display='none';
+    // Pricelist panel: hide New, Import, Export, Brand Order, Load to Calc
+    document.querySelectorAll('.pl-new-btn,.plp-io,.pl-brand-panel,.pl-load-btn,.pl-pdf-btn').forEach(function(el){if(el)el.style.display='none';});
+    ge('plLoadCalcBtn').style.display='none';
+    // Save bar
+    var sb=document.querySelector('.save-bar');if(sb)sb.style.display='none';
+    return;
+  }
+
+  // Reset viewer-hidden elements for non-viewer
+  ['calcHandlingWrap','calcOtherWrap','calcTSPWrap','calcScenarioWrap','mfSection','epPanel','ppPanel'].forEach(function(id){var el=ge(id);if(el)el.style.display='';});
+  ge('calcOTRWrap').style.display='none';
+  ge('impAllBtn').style.display='';
 
   // Pricelist: hide add/edit/clone buttons if no permission
   document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn').forEach(function(el){el.style.display=canEdit?'':'none';});
