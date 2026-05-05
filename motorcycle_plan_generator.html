@@ -471,9 +471,12 @@ body.logged-in{padding-top:36px}
     <label class="login-label">Password</label>
     <input class="login-inp" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password"
       onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In to Generator</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-spinner" id="loginSpinner">Signing in…</div>
+    <div style="margin-top:12px;text-align:center">
+      <a href="portal.html" style="display:inline-block;width:100%;padding:9px;background:none;border:1px solid #30363d;border-radius:6px;color:#8b949e;font-size:13px;text-decoration:none;text-align:center;transition:all .2s" onmouseover="this.style.borderColor='#388bfd';this.style.color='#93c5fd'" onmouseout="this.style.borderColor='#30363d';this.style.color='#8b949e'">🏢 Company Portal</a>
+    </div>
   </div>
 </div>
 
