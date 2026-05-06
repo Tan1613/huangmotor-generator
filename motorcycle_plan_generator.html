@@ -499,6 +499,7 @@ body.logged-in{padding-top:36px}
     </div>
     <div class="admin-tabs">
       <div class="admin-tab on" onclick="switchAdminTab('users',this)">👥 Users</div>
+      <div class="admin-tab" onclick="switchAdminTab('roles',this)">🎭 Roles</div>
       <div class="admin-tab" onclick="switchAdminTab('log',this)">📋 Change Log</div>
     </div>
     <div class="admin-body">
@@ -520,6 +521,44 @@ body.logged-in{padding-top:36px}
         </div>
         <div id="userTableWrap" style="overflow-x:auto"></div>
       </div>
+      <!-- ROLES TAB -->
+      <div id="adminRoles" style="display:none">
+        <div style="font-size:11px;color:#8b949e;margin-bottom:10px">Create custom roles with specific permissions. Users can be assigned these roles.</div>
+        <!-- New role form -->
+        <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;color:#7aa8c7;margin-bottom:8px">Create New Role</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+            <div>
+              <label style="font-size:10px;color:#8b949e;display:block;margin-bottom:2px">Role Name</label>
+              <input type="text" id="nr_name" placeholder="e.g. Sales Rep" class="dark-inp" style="margin:0">
+            </div>
+            <div>
+              <label style="font-size:10px;color:#8b949e;display:block;margin-bottom:2px">Permission Level (1=lowest)</label>
+              <input type="number" id="nr_level" min="1" max="9" value="1" class="dark-inp" style="margin:0">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8b949e;cursor:pointer">
+              <input type="checkbox" id="nr_pl" class="perm-ck"> PL Edit
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8b949e;cursor:pointer">
+              <input type="checkbox" id="nr_gen" class="perm-ck"> Generator Edit
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8b949e;cursor:pointer">
+              <input type="checkbox" id="nr_mf" class="perm-ck"> MF Edit
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8b949e;cursor:pointer">
+              <input type="checkbox" id="nr_viewer" class="perm-ck"> Viewer Mode
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8b949e;cursor:pointer">
+              <input type="checkbox" id="nr_manage" class="perm-ck"> Manage Below
+            </label>
+          </div>
+          <button class="add-user-btn" onclick="createCustomRole()">+ Create Role</button>
+        </div>
+        <div id="rolesTableWrap"></div>
+      </div>
+
       <!-- LOG TAB -->
       <div id="adminLog" style="display:none">
         <div class="log-filter">
@@ -2019,7 +2058,7 @@ async function doLogin(){
   btn.disabled=true;document.getElementById('loginSpinner').style.display='block';document.getElementById('loginErr').textContent='';
   try{
     var hash=await sha256(pass);
-    var rows=await sbGet('users','username=eq.'+encodeURIComponent(user)+'&select=username,role,password_hash,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active');
+    var rows=await sbGet('users','username=eq.'+encodeURIComponent(user)+'&select=username,role,password_hash,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active,custom_role_id');
     if(!rows.length||rows[0].password_hash!==hash){
       document.getElementById('loginErr').textContent='Invalid username or password.';
       btn.disabled=false;document.getElementById('loginSpinner').style.display='none';return;
@@ -2046,6 +2085,13 @@ async function afterLogin(){
   if(currentUser.role==='admin')document.getElementById('tbAdmin').style.display='';
   // Load full profile from cloud
   await loadProfile();
+  // Load custom role if assigned
+  if(currentUser.custom_role_id){
+    try{
+      var cr=await sbGet('custom_roles','id=eq.'+currentUser.custom_role_id);
+      if(cr.length)currentUser.customRole=cr[0];
+    }catch(e){}
+  }
   document.getElementById('tbUser').textContent=(currentUser.display_name||currentUser.username)+' ('+currentUser.role+')';
   applyPermissions();
   await loadAllFromCloud();
@@ -2072,7 +2118,13 @@ function openProfile(){
   document.getElementById('pf_position').value=currentUser.position||'';
   document.getElementById('pf_phone').value=currentUser.phone||'';
   document.getElementById('pf_email').value=currentUser.email||'';
-  // Avatar initial
+  // Only admin can edit position
+  var posInp=document.getElementById('pf_position');
+  if(currentUser.role!=='admin'){
+    posInp.readOnly=true;posInp.style.opacity='0.5';posInp.title='Only Admin can change position';
+  } else {
+    posInp.readOnly=false;posInp.style.opacity='';posInp.title='';
+  }
   var name=currentUser.display_name||currentUser.username||'?';
   document.getElementById('profileAvatar').textContent=name.charAt(0).toUpperCase();
   document.getElementById('profileMsg').textContent='';
@@ -2103,7 +2155,9 @@ async function saveProfile(){
 }
 
 function applyPermissions(){
-  var isViewer=currentUser.role==='viewer';
+  // Check if user has a custom role with viewer_mode
+  var customRole=currentUser.customRole||null;
+  var isViewer=(currentUser.role==='viewer')||(customRole&&customRole.is_viewer_mode);
   var canEdit=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_pricelist!==false);
   var canGen=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_generator!==false);
   var canMF=!isViewer&&(currentUser.role==='admin'||currentUser.can_edit_mf!==false);
@@ -2196,10 +2250,44 @@ function applyPermissions(){
   }
 }
 
+function resetAllUI(){
+  // Reset ALL permission-gated elements to default visible state
+  // Calc panel
+  ['calcHandlingWrap','calcOtherWrap','calcTSPWrap','calcScenarioWrap','mfSection','epPanel','ppPanel'].forEach(function(id){var el=ge(id);if(el)el.style.display='';});
+  ge('calcOTRWrap').style.display='none';
+  ge('impAllBtn').style.display='';
+  // Pricelist buttons
+  document.querySelectorAll('.pl-new-btn,.pl-save-btn,.pl-add-btn,.plp-io,.pl-brand-panel').forEach(function(el){el.style.display='';});
+  var plCloneBtn=ge('plCloneBtn');var plEditBtn=ge('plEditBtn');
+  if(plCloneBtn)plCloneBtn.style.display='';if(plEditBtn)plEditBtn.style.display='';
+  var lcBtn=ge('plLoadCalcBtn');if(lcBtn)lcBtn.style.display='';
+  var pdfBtn=ge('plPdfBtn');if(pdfBtn)pdfBtn.style.display='';
+  var pdfHint=ge('plPdfHint');if(pdfHint)pdfHint.style.display='';
+  var saveBar=document.querySelector('.save-bar');if(saveBar)saveBar.style.display='';
+  // Calc inputs
+  ['cMotor','cRoadtax','cHandling','cOther','cIns'].forEach(function(id){
+    var el=ge(id);if(el){el.readOnly=false;el.style.opacity='';el.style.cursor='';}
+  });
+  // Generator inputs
+  document.querySelectorAll('.ep input,.ep textarea,.ep select').forEach(function(el){el.readOnly=false;el.style.opacity='';el.style.cursor='';el.disabled=false;});
+  document.querySelectorAll('.ep .btn').forEach(function(el){el.disabled=false;el.style.opacity='';});
+  document.querySelectorAll('.ep .seg-opt,.new-group-row,.gift-groups-toolbar').forEach(function(el){el.style.display='';});
+  // MF
+  var mfAdd=ge('mf_add_btn');if(mfAdd)mfAdd.style.display='';
+  ['mfBrand','mfModel','mfAmt'].forEach(function(id){var el=ge(id);if(el)el.disabled=false;});
+  // Reset state
+  S.giftGroups=[];S.p1rows=[{label:'Monthly Installment (RM)',vals:{}}];S.p2rows=[{label:'Monthly Installment (RM)',vals:{}}];
+  C.dps=[];C.tsp=0;C.rate=10;
+  ['modelName','desc_en','desc_ms','desc_zh','otrTxt','pfee','cMotor','cIns','cRoadtax','cHandling','cOther'].forEach(function(id){var el=ge(id);if(el)el.value='';});
+  ge('tspVal').textContent='RM 0.00';ge('otrVal').textContent='RM 0.00';
+  renderDPTags();buildRows();buildGiftGroups();renderMFTable();renderPLList();
+  PL.sel=null;cloudReady=false;
+}
+
 function doLogout(){
   if(!confirm('Sign out?'))return;
   if(realtimeInterval)clearInterval(realtimeInterval);
-  cloudReady=false;
+  resetAllUI();
   localStorage.removeItem('hm_session');
   currentUser=null;
   document.getElementById('mainApp').style.display='none';
@@ -2208,6 +2296,7 @@ function doLogout(){
   document.body.classList.remove('logged-in');
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('loginPass').value='';
+  document.getElementById('loginBtn').textContent='Sign In';
   document.getElementById('loginBtn').disabled=false;
   document.getElementById('loginSpinner').style.display='none';
 }
@@ -2343,18 +2432,73 @@ function closeAdmin(){document.getElementById('adminPanel').style.display='none'
 function switchAdminTab(tab,el){
   document.querySelectorAll('.admin-tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');
   document.getElementById('adminUsers').style.display=tab==='users'?'':'none';
+  document.getElementById('adminRoles').style.display=tab==='roles'?'':'none';
   document.getElementById('adminLog').style.display=tab==='log'?'':'none';
   if(tab==='log')loadLog();
+  if(tab==='roles')loadRolesTable();
+}
+
+/* ── Custom Roles ── */
+var customRoles=[];
+async function loadCustomRoles(){
+  customRoles=await sbGet('custom_roles','order=level.asc,name.asc');
+  return customRoles;
+}
+async function loadRolesTable(){
+  await loadCustomRoles();
+  var wrap=document.getElementById('rolesTableWrap');
+  if(!customRoles.length){wrap.innerHTML='<div style="font-size:11px;color:#30363d;text-align:center;padding:10px">No custom roles yet.</div>';return;}
+  var html='<table class="user-table"><thead><tr><th>Role Name</th><th>Level</th><th>PL</th><th>Gen</th><th>MF</th><th>Viewer</th><th>Manage</th><th></th></tr></thead><tbody>';
+  customRoles.forEach(function(r){
+    var ck=function(v){return v?'<span style="color:#3fb950">✓</span>':'<span style="color:#30363d">—</span>';};
+    html+='<tr>'
+      +'<td style="font-weight:600;color:#f0f6fc">'+esc(r.name)+'</td>'
+      +'<td style="text-align:center"><span style="background:#1e2d45;padding:1px 7px;border-radius:4px;font-size:10px">L'+r.level+'</span></td>'
+      +'<td style="text-align:center">'+ck(r.can_edit_pricelist)+'</td>'
+      +'<td style="text-align:center">'+ck(r.can_edit_generator)+'</td>'
+      +'<td style="text-align:center">'+ck(r.can_edit_mf)+'</td>'
+      +'<td style="text-align:center">'+ck(r.is_viewer_mode)+'</td>'
+      +'<td style="text-align:center">'+ck(r.can_manage_below)+'</td>'
+      +'<td><button onclick="deleteCustomRole('+r.id+',\''+esc(r.name)+'\')" style="padding:2px 8px;border:1px solid #6a2020;border-radius:4px;font-size:10px;cursor:pointer;background:none;color:#f85149">Delete</button></td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';wrap.innerHTML=html;
+}
+async function createCustomRole(){
+  var name=ge('nr_name').value.trim();
+  if(!name){alert('Role name is required.');return;}
+  var level=parseInt(ge('nr_level').value)||1;
+  await fetch(SB_URL+'/rest/v1/custom_roles',{
+    method:'POST',headers:Object.assign({},sbHeaders(),{'Prefer':'return=minimal'}),
+    body:JSON.stringify({name:name,code:name.toLowerCase().replace(/\s+/g,'_'),level:level,
+      can_edit_pricelist:ge('nr_pl').checked,can_edit_generator:ge('nr_gen').checked,
+      can_edit_mf:ge('nr_mf').checked,is_viewer_mode:ge('nr_viewer').checked,
+      can_manage_below:ge('nr_manage').checked})
+  });
+  ge('nr_name').value='';ge('nr_level').value='1';
+  ['nr_pl','nr_gen','nr_mf','nr_viewer','nr_manage'].forEach(function(id){ge(id).checked=false;});
+  await loadRolesTable();
+  // Refresh user table role dropdown
+  await loadUserTable();
+}
+async function deleteCustomRole(id,name){
+  if(!confirm('Delete role "'+name+'"?\nUsers assigned this role will revert to staff.'))return;
+  await fetch(SB_URL+'/rest/v1/custom_roles?id=eq.'+id,{method:'DELETE',headers:sbHeaders()});
+  await loadRolesTable();
 }
 
 async function loadUserTable(){
-  var rows=await sbGet('users','select=username,role,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active&order=username.asc');
-  var html='<table class="user-table"><thead><tr><th>Username</th><th>Role</th><th>PL Edit</th><th>Gen Edit</th><th>MF Edit</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  await loadCustomRoles();
+  var rows=await sbGet('users','select=username,role,can_edit_pricelist,can_edit_generator,can_edit_mf,is_active,custom_role_id&order=username.asc');
+  var roleOpts='<option value="">— Default —</option>'+customRoles.map(function(r){return '<option value="'+r.id+'">'+esc(r.name)+' (L'+r.level+')</option>';}).join('');
+  var html='<table class="user-table"><thead><tr><th>Username</th><th>System</th><th>Custom Role</th><th>PL</th><th>Gen</th><th>MF</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   rows.forEach(function(u){
     var isSelf=u.username===currentUser.username;
+    var selOpts=roleOpts.replace('value="'+(u.custom_role_id||'')+'"','value="'+(u.custom_role_id||'')+'" selected');
     html+='<tr>'
       +'<td>'+esc(u.username)+'</td>'
       +'<td><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:'+(u.role==='admin'?'#2d1a0d':'#0d1a2d')+';color:'+(u.role==='admin'?'#f0a040':'#58a6ff')+'">'+u.role+'</span></td>'
+      +'<td><select onchange="assignCustomRole(\''+u.username+'\',this.value)" style="padding:2px 5px;border:1px solid #30363d;border-radius:4px;font-size:10px;background:#0d1117;color:#c9d1d9;cursor:pointer">'+selOpts+'</select></td>'
       +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_pricelist!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_pricelist\',this.checked)"></td>'
       +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_generator!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_generator\',this.checked)"></td>'
       +'<td style="text-align:center"><input type="checkbox" class="perm-ck" '+(u.can_edit_mf!==false?'checked':'')+' onchange="updatePerm(\''+u.username+'\',\'can_edit_mf\',this.checked)"></td>'
@@ -2367,6 +2511,20 @@ async function loadUserTable(){
   });
   html+='</tbody></table>';
   document.getElementById('userTableWrap').innerHTML=html;
+}
+
+async function assignCustomRole(username,roleId){
+  var val=roleId?parseInt(roleId):null;
+  await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({custom_role_id:val})});
+  // If assigning a role with viewer_mode, update can_edit flags automatically
+  if(val){
+    var role=customRoles.find(function(r){return r.id===val;});
+    if(role){
+      await fetch(SB_URL+'/rest/v1/users?username=eq.'+encodeURIComponent(username),{method:'PATCH',headers:sbHeaders(),body:JSON.stringify({can_edit_pricelist:role.can_edit_pricelist,can_edit_generator:role.can_edit_generator,can_edit_mf:role.can_edit_mf})});
+    }
+  }
+  await logAction('assign_custom_role','users',username,null,{custom_role_id:val});
+  await loadUserTable();
 }
 
 async function addUser(){
